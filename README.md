@@ -13,7 +13,9 @@ Press Save As .ipynb, you'll get Jupiter Notebook file
 `-Name`: delete the model  
 If the Name starts with **_** , this would automatically replaces to **TEMP_**  
 `CM A + B alpha Result`: Weight Sum of 2 models saved as Result  
-`CM A + B + C alpha beta Result`: Sum Twice of 3 models saved as Result  
+`CM A + B +S C alpha beta Result`: Sum Twice of 3 models saved as Result  
+`CM A + B +T C alpha beta Result`: Triple Sum of 3 models saved as Result  
+`CM A + B - C alpha Result`: Add Difference of 3 models saved as Result  
 `LB Checkpoint A:alpha,B:beta,C:gamma Result`: Merge multiple LoRAs to Checkpoint, saved as Result  
 'PR Checkpoint Result`: Prune the checkpoint and saved as Result
 
@@ -26,13 +28,13 @@ If the Name starts with **_** , this would automatically replaces to **TEMP_**
 +HYB, https://civitai.com/models/636191/hybridmixpony6
 +MAG, https://civitai.com/models/562557?modelVersionId=626703
 
-CM DHP + MKF + SXL 0.2 0.3 _A
+CM DHP + MKF +S SXL 0.2 0.3 _A
 
 -DHP
 -MKF
 -SXL
 
-CM ALP + HYB + MAG 0.35 0.25 _B
+CM ALP + HYB +S MAG 0.35 0.25 _B
 
 -ALP
 -HYB
@@ -46,19 +48,19 @@ CM ALP + HYB + MAG 0.35 0.25 _B
 +LIL, https://civitai.com/models/582090/lilith-pony-toonmix
 +WHP, https://civitai.com/models/575700/whipdxlmix
 
-CM FT + IF + DR 0.3 0.35 _C
+CM FT + IF +S DR 0.3 0.35 _C
 
 -FT
 -IF
 -DR
 
-CM OFA + LIL + WHP 0.2 0.25 _D
+CM OFA + LIL +S WHP 0.2 0.25 _D
 
 -OFA
 -LIL
 -WHP
 
-CM _A + _C + _D 0.35 0.2 _E
+CM _A + _C +S _D 0.35 0.2 _E
 
 -_A
 -_C
