@@ -36,39 +36,6 @@ def filedialog_clicked():
     fileentry.insert(tk.END, iFilePath)
     config["filepath"] = iFilePath
 
-def save_as_text():
-    config["title"] = title.get()
-    config["vae"] = vae.get()
-    config["CivitAPI"] = CAPI.get()
-    config["HuggingAPI"] = HAPI.get()
-    fTyp = [("Text File","*.txt")]
-    iFile = cp("saveas")
-    filename = filedialog.asksaveasfilename(initialdir = iFile,title = "Save as",filetypes =  fTyp)
-    if not filename.endswith(".txt"):
-        filename += ".txt"
-    config["saveas"] = filename
-    if os.path.exists(filename):
-        os.remove(filename)
-    create_plan(**config)
-    save_set(config)
-
-def save_as_ipynb():
-    config["title"] = title.get()
-    config["vae"] = vae.get()
-    config["CivitAPI"] = CAPI.get()
-    config["HuggingAPI"] = HAPI.get()
-    config["UR"] = UR.get()
-    fTyp = [("IPYNB File","*.ipynb")]
-    iFile = cp("saveas")
-    filename = filedialog.asksaveasfilename(initialdir = iFile,title = "Save as",filetypes =  fTyp)
-    if not filename.endswith(".ipynb"):
-        filename += ".ipynb"
-    config["saveas"] = filename
-    if os.path.exists(filename):
-        os.remove(filename)
-    create_plan_ipynb(**config)
-    save_set(config)
-
 def about():
     sub_win = tk.Toplevel()
     sub_win.geometry("300x100")
@@ -110,6 +77,13 @@ def main():
     lab5 = tk.Label(frame6, text="User/Repo", font = ('MS Gothic', 10))
     fileentry = tk.Entry(frame1)
     fileentry.insert(0,cp("filepath"))
+    def filedialog_clicked():
+        fTyp = [("Text File","*.txt")]
+        iFile = cp("filepath")
+        iFilePath = filedialog.askopenfilename(filetype = fTyp, title = "Select Planned File Path", initialdir = iFile)
+        fileentry.delete(0, tk.END)
+        fileentry.insert(tk.END, iFilePath)
+        config["filepath"] = iFilePath
     filebutton = tk.Button(frame1, text="Open",command=filedialog_clicked)
     title = tk.Entry(frame2,width=20)
     title.insert(0,cp("title"))
@@ -121,6 +95,38 @@ def main():
     HAPI.insert(0,cp("HuggingAPI"))
     UR = tk.Entry(frame6,width=20)
     UR.insert(0,cp("UR"))
+    def save_as_text():
+        config["title"] = title.get()
+        config["vae"] = vae.get()
+        config["CivitAPI"] = CAPI.get()
+        config["HuggingAPI"] = HAPI.get()
+        fTyp = [("Text File","*.txt")]
+        iFile = cp("saveas")
+        filename = filedialog.asksaveasfilename(initialdir = iFile,title = "Save as",filetypes =  fTyp)
+        if not filename.endswith(".txt"):
+            filename += ".txt"
+        config["saveas"] = filename
+        if os.path.exists(filename):
+            os.remove(filename)
+        create_plan(**config)
+        save_set(config)
+
+    def save_as_ipynb():
+        config["title"] = title.get()
+        config["vae"] = vae.get()
+        config["CivitAPI"] = CAPI.get()
+        config["HuggingAPI"] = HAPI.get()
+        config["UR"] = UR.get()
+        fTyp = [("IPYNB File","*.ipynb")]
+        iFile = cp("saveas")
+        filename = filedialog.asksaveasfilename(initialdir = iFile,title = "Save as",filetypes =  fTyp)
+        if not filename.endswith(".ipynb"):
+            filename += ".ipynb"
+        config["saveas"] = filename
+        if os.path.exists(filename):
+            os.remove(filename)
+        create_plan_ipynb(**config)
+        save_set(config)
     save = tk.Button(frame7, text="Save Plan As Text",command=save_as_text)
     save1 = tk.Button(frame7, text="Save Plan As .ipynb",command=save_as_ipynb)
 
