@@ -27,7 +27,191 @@ def data_construct(l):
           }
         fe.append(json.dumps(form))
     return fe
-        
+
+def planit(filepath):
+    res = []
+    with open(filepath, mode="r+") as f:
+        line = f.readline()
+        while line:
+            t = line.rstrip("\n")
+            line = f.readline()
+            if t == "":
+                res.append("")
+                continue
+            elif t.startswith("//"):
+                r = "#" + t[2:]
+            elif t.startswith("+"):
+                t = t[1:]
+                try:
+                    if "https://" not in res[-1] and res[-1] != "":
+                        res.append("")
+                except:
+                    pass
+                d = t.replace(",","").split(" ")
+                if "%LR" in t:
+                    mode = "lora"
+                else:
+                    mode = "checkpoint"
+                if d[0][0] == "_":
+                    d[0] = f"TEMP{d[0]}"
+                if "/api/" in t:
+                    r = f"{d[0]} = old_custom_model(\"{d[1]}\",\"{d[0]}\",1,\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQR\")"
+                else:
+                    r = f"{d[0]} = custom_model(\"{d[1]}\",\"{d[0]}\",mode=\"{mode}\")"
+                if "%LC" in t:
+                    r = f"{d[0]} = model(\"{d[0]}\",1)"
+            elif t.startswith("CM"):
+                t = t[3:]
+                if res != []:
+                    res.append("")
+                d = t.replace("+ ","").replace("+T ","").replace("+S ","").replace("- ","").split(" ")
+                if t.count("+") == 2:
+                    if d[0][0] == "_":
+                        d[0] = f"TEMP{d[0]}"
+                    if d[1][0] == "_":
+                        d[1] = f"TEMP{d[1]}"
+                    if d[2][0] == "_":
+                        d[2] = f"TEMP{d[2]}"
+                    if d[5][0] == "_":
+                        d[5] = f"TEMP{d[5]}"
+                    if "+T" in t:
+                        if not line:
+                            r = f"""!python merge.py "TRS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--beta {d[4]} \\
+--save_half --prune --save_safetensors --output "{d[5]}"
+!pip cache purge"""
+                            final = d[5]
+                        else:
+                            r = f"""!python merge.py "TRS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--beta {d[4]} \\
+--save_half --prune --save_safetensors --output "{d[5]}"
+!pip cache purge
+
+{d[5]}=model("{d[5]}",1)"""
+                            final = d[5]
+                    elif "+S" in t:
+                        if not line:
+                            r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--beta {d[4]} \\
+--save_half --prune --save_safetensors --output "{d[5]}"
+!pip cache purge"""
+                            final = d[5]
+                        else:
+                            r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--beta {d[4]} \\
+--save_half --prune --save_safetensors --output "{d[5]}"
+!pip cache purge
+
+{d[5]}=model("{d[5]}",1)"""
+                            final = d[5]
+                elif "-" in t:
+                    if not line:
+                        r = f"""!python merge.py "AD" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--save_half --prune --save_safetensors --output "{d[4]}"
+!pip cache purge"""
+                        final = d[4]
+                    else:
+                        r = f"""!python merge.py "AD" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[3]} \\
+--save_half --prune --save_safetensors --output "{d[4]}"
+!pip cache purge
+
+{d[4]}=model("{d[4]}",1)"""
+                        final = d[4]
+                else:
+                    if d[0][0] == "_":
+                        d[0] = f"TEMP{d[0]}"
+                    if d[1][0] == "_":
+                        d[1] = f"TEMP{d[1]}"
+                    if d[3][0] == "_":
+                        d[3] = f"TEMP{d[3]}"
+                    if not line:
+                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[2]} \\
+--save_half --prune --save_safetensors --output "{d[3]}"
+!pip cache purge"""
+                        final = d[3]
+                    else:
+                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[2]} \\
+--save_half --prune --save_safetensors --output "{d[3]}"
+!pip cache purge
+
+{d[3]}=model("{d[3]}",1)"""
+                        final = d[3]
+            elif t.startswith("LB"):
+                t = t[3:]
+                d=t.split(" ")
+                if d[0][0] == "_":
+                    d[0] = f"TEMP{d[0]}"
+                if d[2][0] == "_":
+                    d[2] = f"TEMP{d[2]}"
+                e = d[1].split(",")
+                er=[]
+                for q in e:
+                    er.append(q.replace(":",".safetensors:"))
+                fe = ",".join(er)
+                if not line:
+                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
+"{fe}" \\
+--save_safetensors --output "{d[2]}"
+!pip cache purge"""
+                    final = d[2]
+                else:
+                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
+"{fe}" \\
+--save_safetensors --output "{d[2]}"
+!pip cache purge
+
+{d[2]}=model("{d[2]}",1)"""
+                    final = d[2]
+            elif t.startswith("PR"):
+                t = t[3:]
+                d = t.split(" ")
+                if d[0][0] == "_":
+                    d[0] = f"TEMP{d[0]}"
+                if d[1][0] == "_":
+                    d[1] = f"TEMP{d[1]}"
+                if not line:
+                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--save_half --prune --save_safetensors --output "{d[1]}"
+!pip cache purge"""
+                    final = d[1]
+                else:
+                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--save_half --prune --save_safetensors --output "{d[1]}"
+!pip cache purge
+
+{d[1]}=model("{d[1]}",1)"""
+                    final = d[1]
+            elif t.startswith("-"):
+                try:
+                    if "remove_model" not in res[-1] and res[-1] != "":
+                        res.append("")
+                except:
+                    pass
+                d = t.replace("-","")
+                if d[0] == "_":
+                    d = f"TEMP{d}"
+                r = f"remove_model({d})"
+            res.append(r)
+    return res, final
+
 def create_plan(filepath, saveas, title, vae, CivitAPI, HuggingAPI, UR):
     res = []
     pre = r"""from fake_useragent import UserAgent
@@ -384,139 +568,7 @@ def custom_vae(url, vae_name, format=0):
 %cd /kaggle/working/merge-models
 
 """
-    with open(filepath, mode="r+") as f:
-        line = f.readline()
-        while line:
-            t = line.rstrip("\n")
-            line = f.readline()
-            if t == "":
-                res.append("")
-                continue
-            elif t.startswith("//"):
-                r = "#" + t[2:]
-            elif t.startswith("+"):
-                t = t[1:]
-                try:
-                    if "https://" not in res[-1] and res[-1] != "":
-                        res.append("")
-                except:
-                    pass
-                d = t.replace(",","").split(" ")
-                if "%LR" in t:
-                    mode = "lora"
-                else:
-                    mode = "checkpoint"
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if "/api/" in t:
-                    r = f"{d[0]} = old_custom_model(\"{d[1]}\",\"{d[0]}\",1,\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQR\")"
-                else:
-                    r = f"{d[0]} = custom_model(\"{d[1]}\",\"{d[0]}\",mode=\"{mode}\")"
-            elif t.startswith("CM"):
-                t = t[3:]
-                if res != []:
-                    res.append("")
-                d = t.replace("+ ","").split(" ")
-                if t.count("+") == 2:
-                    if d[0][0] == "_":
-                        d[0] = f"TEMP{d[0]}"
-                    if d[1][0] == "_":
-                        d[1] = f"TEMP{d[1]}"
-                    if d[2][0] == "_":
-                        d[2] = f"TEMP{d[2]}"
-                    if d[5][0] == "_":
-                        d[5] = f"TEMP{d[5]}"
-                    if not line:
-                        r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[3]} \\
---beta {d[4]} \\
---save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge"""
-                    else:
-                        r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[3]} \\
---beta {d[4]} \\
---save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge
-
-{d[5]}=model("{d[5]}",1)"""
-                else:
-                    if d[0][0] == "_":
-                        d[0] = f"TEMP{d[0]}"
-                    if d[1][0] == "_":
-                        d[1] = f"TEMP{d[1]}"
-                    if d[3][0] == "_":
-                        d[3] = f"TEMP{d[3]}"
-                    if not line:
-                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge"""
-                    else:
-                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge
-
-{d[3]}=model("{d[3]}",1)"""
-            elif t.startswith("LB"):
-                t = t[3:]
-                d=t.split(" ")
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if d[2][0] == "_":
-                    d[2] = f"TEMP{d[2]}"
-                e = d[1].split(",")
-                er=[]
-                for q in e:
-                    er.append(q.replace(":",".safetensors:"))
-                fe = ",".join(er)
-                if not line:
-                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
-"{fe}" \\
---save_safetensors --output "{d[2]}"
-!pip cache purge"""
-                else:
-                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
-"{fe}" \\
---save_safetensors --output "{d[2]}"
-!pip cache purge
-
-{d[2]}=model("{d[2]}",1)"""
-            elif t.startswith("PR"):
-                t = t[3:]
-                d = t.split(" ")
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if d[1][0] == "_":
-                    d[1] = f"TEMP{d[1]}"
-                if not line:
-                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge"""
-                else:
-                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge
-
-{d[1]}=model("{d[1]}",1)"""
-            elif t.startswith("-"):
-                try:
-                    if "remove_model" not in res[-1] and res[-1] != "":
-                        res.append("")
-                except:
-                    pass
-                d = t.replace("-","")
-                if d[0] == "_":
-                    d = f"TEMP{d}"
-                r = f"remove_model({d})"
-            res.append(r)
+    res, _ = planit(filepath)
     with open(saveas, mode="a+") as f:
         f.write(f"#{title}\n\n")
         f.write(pre)
@@ -883,143 +935,7 @@ def custom_vae(url, vae_name, format=0):
 %cd /kaggle/working/merge-models
 
 """
-    with open(filepath, mode="r+") as f:
-        line = f.readline()
-        while line:
-            t = line.rstrip("\n")
-            line = f.readline()
-            if t == "":
-                res.append("")
-                continue
-            elif t.startswith("//"):
-                r = "#" + t[2:]
-            elif t.startswith("+"):
-                t = t[1:]
-                try:
-                    if "https://" not in res[-1] and res[-1] != "":
-                        res.append("")
-                except:
-                    pass
-                d = t.replace(",","").split(" ")
-                if "%LR" in t:
-                    mode = "lora"
-                else:
-                    mode = "checkpoint"
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if "/api/" in t:
-                    r = f"{d[0]} = old_custom_model(\"{d[1]}\",\"{d[0]}\",1,\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQR\")"
-                else:
-                    r = f"{d[0]} = custom_model(\"{d[1]}\",\"{d[0]}\",mode=\"{mode}\")"
-            elif t.startswith("CM"):
-                t = t[3:]
-                if res != []:
-                    res.append("")
-                d = t.replace("+ ","").split(" ")
-                if t.count("+") == 2:
-                    if d[0][0] == "_":
-                        d[0] = f"TEMP{d[0]}"
-                    if d[1][0] == "_":
-                        d[1] = f"TEMP{d[1]}"
-                    if d[2][0] == "_":
-                        d[2] = f"TEMP{d[2]}"
-                    if d[5][0] == "_":
-                        d[5] = f"TEMP{d[5]}"
-                    if not line:
-                        r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[3]} \\
---beta {d[4]} \\
---save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge"""
-                        final = d[5]
-                    else:
-                        r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[3]} \\
---beta {d[4]} \\
---save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge
-
-{d[5]}=model("{d[5]}",1)"""
-                else:
-                    if d[0][0] == "_":
-                        d[0] = f"TEMP{d[0]}"
-                    if d[1][0] == "_":
-                        d[1] = f"TEMP{d[1]}"
-                    if d[3][0] == "_":
-                        d[3] = f"TEMP{d[3]}"
-                    if not line:
-                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge"""
-                        final = d[3]
-                    else:
-                        r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge
-
-{d[3]}=model("{d[3]}",1)"""
-            elif t.startswith("LB"):
-                t = t[3:]
-                d=t.split(" ")
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if d[2][0] == "_":
-                    d[2] = f"TEMP{d[2]}"
-                e = d[1].split(",")
-                er=[]
-                for q in e:
-                    er.append(q.replace(":",".safetensors:"))
-                fe = ",".join(er)
-                if not line:
-                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
-"{fe}" \\
---save_safetensors --output "{d[2]}"
-!pip cache purge"""
-                    final = d[2]
-                else:
-                    r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
-"{fe}" \\
---save_safetensors --output "{d[2]}"
-!pip cache purge
-
-{d[2]}=model("{d[2]}",1)"""
-            elif t.startswith("PR"):
-                t = t[3:]
-                d = t.split(" ")
-                if d[0][0] == "_":
-                    d[0] = f"TEMP{d[0]}"
-                if d[1][0] == "_":
-                    d[1] = f"TEMP{d[1]}"
-                if not line:
-                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge"""
-                    final = d[1]
-                else:
-                    r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
---vae "/kaggle/tmp/vae/VAE.safetensors" \\
---save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge
-
-{d[1]}=model("{d[1]}",1)"""
-            elif t.startswith("-"):
-                try:
-                    if "remove_model" not in res[-1] and res[-1] != "":
-                        res.append("")
-                except:
-                    pass
-                d = t.replace("-","")
-                if d[0] == "_":
-                    d = f"TEMP{d}"
-                r = f"remove_model({d})"
-            res.append(r)
+    res, final = planit(filepath)
     nwx = f"#{title}\n\n"
     nwx += pre
     nwx += "\n".join(res)
