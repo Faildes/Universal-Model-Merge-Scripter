@@ -17,7 +17,7 @@ If the Name starts with **_** , this would automatically replaces to **TEMP_**
 `CM A + B +T C alpha beta Result`: Triple Sum of 3 models saved as Result  
 `CM A + B - C alpha Result`: Add Difference of 3 models saved as Result  
 `LB Checkpoint A:alpha,B:beta,C:gamma Result`: Merge multiple LoRAs to Checkpoint, saved as Result  
-'PR Checkpoint Result`: Prune the checkpoint and saved as Result
+`PR Checkpoint Result`: Prune the checkpoint and saved as Result
 
 *Example* (Using the script for NovaFurry v3.0) :  
 ```+DHP, https://civitai.com/models/436585/dhxl-dead-horse-project-resources-sdxlpony
