@@ -64,7 +64,7 @@ def planit(filepath):
                 t = t[3:]
                 if res != []:
                     res.append("")
-                d = t.replace("+ ","").replace("+T ","").replace("+S ","").replace("- ","").split(" ")
+                d = t.replace("+ ","").replace("+T ","").replace("+S ","").replace("- ","").replace("+D ","").split(" ")
                 if t.count("+") == 2:
                     if d[0][0] == "_":
                         d[0] = f"TEMP{d[0]}"
@@ -81,7 +81,7 @@ def planit(filepath):
 --alpha {d[3]} \\
 --beta {d[4]} \\
 --save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge"""
+flush()"""
                             final = d[5]
                         else:
                             r = f"""!python merge.py "TRS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
@@ -89,7 +89,7 @@ def planit(filepath):
 --alpha {d[3]} \\
 --beta {d[4]} \\
 --save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge
+flush()
 
 {d[5]}=model("{d[5]}",1)"""
                             final = d[5]
@@ -100,7 +100,7 @@ def planit(filepath):
 --alpha {d[3]} \\
 --beta {d[4]} \\
 --save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge"""
+flush()"""
                             final = d[5]
                         else:
                             r = f"""!python merge.py "ST" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
@@ -108,7 +108,7 @@ def planit(filepath):
 --alpha {d[3]} \\
 --beta {d[4]} \\
 --save_half --prune --save_safetensors --output "{d[5]}"
-!pip cache purge
+flush()
 
 {d[5]}=model("{d[5]}",1)"""
                             final = d[5]
@@ -118,17 +118,49 @@ def planit(filepath):
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[3]} \\
 --save_half --prune --save_safetensors --output "{d[4]}"
-!pip cache purge"""
+flush()"""
                         final = d[4]
                     else:
                         r = f"""!python merge.py "AD" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[3]} \\
 --save_half --prune --save_safetensors --output "{d[4]}"
-!pip cache purge
+flush()
 
 {d[4]}=model("{d[4]}",1)"""
                         final = d[4]
+                elif "+D" in t:
+                    if "," in d[2]:
+                        j = d[2].split(",",1)
+                        j[0] = "\"0"
+                        d[2] = ",".join(j)
+                    else:
+                        j = ["\"0"] + ([d[2]] * 25)
+                        d[2] = ",".join(j)
+                    if not d[2].endswith("\""):
+                        d[2] += "\""
+                    if d[0][0] == "_":
+                        d[0] = f"TEMP{d[0]}"
+                    if d[1][0] == "_":
+                        d[1] = f"TEMP{d[1]}"
+                    if d[3][0] == "_":
+                        d[3] = f"TEMP{d[3]}"
+                    if not line:
+                        r = f"""!python merge.py "DARE" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[2]} \\
+--save_half --prune --save_safetensors --output "{d[3]}"
+flush()"""
+                        final = d[3]
+                    else:
+                        r = f"""!python merge.py "DARE" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
+--vae "/kaggle/tmp/vae/VAE.safetensors" \\
+--alpha {d[2]} \\
+--save_half --prune --save_safetensors --output "{d[3]}"
+flush()
+
+{d[3]}=model("{d[3]}",1)"""
+                        final = d[3]
                 else:
                     if d[0][0] == "_":
                         d[0] = f"TEMP{d[0]}"
@@ -141,14 +173,14 @@ def planit(filepath):
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[2]} \\
 --save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge"""
+flush()"""
                         final = d[3]
                     else:
                         r = f"""!python merge.py "WS" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[2]} \\
 --save_half --prune --save_safetensors --output "{d[3]}"
-!pip cache purge
+flush()
 
 {d[3]}=model("{d[3]}",1)"""
                         final = d[3]
@@ -168,13 +200,13 @@ def planit(filepath):
                     r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
 "{fe}" \\
 --save_safetensors --output "{d[2]}"
-!pip cache purge"""
+flush()"""
                     final = d[2]
                 else:
                     r = f"""!python lora_bake.py "/kaggle/tmp/models/" "{d[0]}.safetensors" \\
 "{fe}" \\
 --save_safetensors --output "{d[2]}"
-!pip cache purge
+flush()
 
 {d[2]}=model("{d[2]}",1)"""
                     final = d[2]
@@ -189,13 +221,13 @@ def planit(filepath):
                     r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge"""
+flush()"""
                     final = d[1]
                 else:
                     r = f"""!python merge.py "NoIn" "/kaggle/tmp/models/" "{d[0]}.safetensors" None \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --save_half --prune --save_safetensors --output "{d[1]}"
-!pip cache purge
+flush()
 
 {d[1]}=model("{d[1]}",1)"""
                     final = d[1]
@@ -223,11 +255,18 @@ import os
 import filelock, json, hashlib
 import re
 import requests
+import gc, torch
+
 pref = {
     "format": "SafeTensor",
     "size": "pruned",
     "fp": "fp16"}
 
+def flush():
+  gc.collect()
+  torch.cuda.empty_cache()
+  !pip cache purge
+ 
 def remove_model(path):
     print(f"Delete {os.path.basename(path)}")
     os.remove(path)
@@ -510,6 +549,8 @@ def old_custom_model(url, checkpoint_name=None, format=0, sha256=None):
     ext = "ckpt"
   elif format == 1:
     ext = "safetensors"
+  if os.path.exists(f"/kaggle/tmp/models/{checkpoint_name}.{ext}"):
+    return f"/kaggle/tmp/models/{checkpoint_name}.{ext}"
   if "huggingface" in url:
     user_header = f"\"Authorization: Bearer {user_token}\""
     !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/models/ -o {checkpoint_name}.{ext}
@@ -590,10 +631,17 @@ import os
 import filelock, json, hashlib
 import re
 import requests
+import gc, torch
+
 pref = {
     "format": "SafeTensor",
     "size": "pruned",
     "fp": "fp16"}
+
+def flush():
+  gc.collect()
+  torch.cuda.empty_cache()
+  !pip cache purge
 
 def remove_model(path):
     print(f"Delete {os.path.basename(path)}")
@@ -877,6 +925,8 @@ def old_custom_model(url, checkpoint_name=None, format=0, sha256=None):
     ext = "ckpt"
   elif format == 1:
     ext = "safetensors"
+  if os.path.exists(f"/kaggle/tmp/models/{checkpoint_name}.{ext}"):
+    return f"/kaggle/tmp/models/{checkpoint_name}.{ext}"
   if "huggingface" in url:
     user_header = f"\"Authorization: Bearer {user_token}\""
     !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/models/ -o {checkpoint_name}.{ext}
