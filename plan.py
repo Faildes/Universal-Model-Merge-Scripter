@@ -616,8 +616,9 @@ def custom_vae(url, vae_name, format=0):
         f.write("\n".join(res))
 
 def create_plan_ipynb(filepath, saveas, title, vae, CivitAPI, HuggingAPI,UR):
-    dp = ["""!pip install compel lora torch safetensors accelerate fake_useragent diffusers["torch"] transformers torchsde ninja xformers git+https://github.com/huggingface/diffusers
-!pip install -U peft transformers
+    dp = ["""!pip install lora safetensors accelerate fake_useragent diffusers["torch"] transformers torchsde ninja xformers git+https://github.com/huggingface/diffusers git+https://github.com/xhinker/sd_embed.git@main
+!pip install -U peft transformers torch torchvision
+!pip install torchao --extra-index-url https://download.pytorch.org/whl/cu121 # full options are cpu/cu118/cu121/cu124
 !apt-get -y install -qq aria2
 %cd /kaggle/working/
 !git clone https://github.com/Faildes/merge-models"""]
@@ -1375,7 +1376,7 @@ import re
 from IPython.display import display
 import random
 import copy
-from compel import Compel, DiffusersTextualInversionManager, ReturnedEmbeddingsType
+from sd_embed.embedding_funcs import get_weighted_text_embeddings_sdxl
 from PIL.PngImagePlugin import PngInfo
 from safetensors.torch import load_file
 from diffusers import StableDiffusionXLPipeline
@@ -1522,22 +1523,7 @@ if global_hires_seed == -1: rand_seed += 2
 if global_hires_seed == -2: copy_seed = True
 lhash = {}
 pp, lhash = lora_prompt(prompt, pipe, lhash)
-pp = bpro(pp)
-np = bpro(neg)
-
-compel_proc = Compel(
-    tokenizer=[pipe.tokenizer,pipe.tokenizer_2],
-    text_encoder=[pipe.text_encoder,pipe.text_encoder_2],
-    returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
-    requires_pooled=[False, True],
-    truncate_long_prompts=False,
-    device="cuda:0")
-
-
-embeds, pooled = compel_proc.build_conditioning_tensor(pp)
-negative_embeds, neg_pooled = compel_proc.build_conditioning_tensor(np)
-
-[embeds, negative_embeds] = compel_proc.pad_conditioning_tensors_to_same_length([embeds, negative_embeds])
+(embeds, negative_embeds, pooled, neg_pooled)=get_weighted_text_embeddings_sdxl(pipe,prompt=pp,neg_prompt=neg)
 
 device = "cpu"
 i = 0
