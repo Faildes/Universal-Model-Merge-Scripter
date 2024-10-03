@@ -621,7 +621,7 @@ def create_plan_ipynb(filepath, saveas, title, vae, CivitAPI, HuggingAPI,UR):
 !pip install torchao --extra-index-url https://download.pytorch.org/whl/cu121 # full options are cpu/cu118/cu121/cu124
 !apt-get -y install -qq aria2
 %cd /kaggle/working/
-!git clone https://github.com/Faildes/merge-models"""]
+!git clone https://github.com/Faildes/merge-models -b notebook"""]
     res = []
     pre = r"""from fake_useragent import UserAgent
 import os
