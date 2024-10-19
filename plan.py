@@ -616,8 +616,7 @@ def custom_vae(url, vae_name, format=0):
         f.write("\n".join(res))
 
 def create_plan_ipynb(filepath, saveas, title, vae, CivitAPI, HuggingAPI,UR):
-    dp = ["""!pip install lora safetensors accelerate fake_useragent diffusers["torch"] transformers torchsde ninja xformers git+https://github.com/huggingface/diffusers git+https://github.com/xhinker/sd_embed.git@main
-!pip install -U peft transformers torch torchvision
+    dp = ["""!pip install torch torchvision lora fake_useragent diffusers["torch"] torchsde git+https://github.com/huggingface/diffusers git+https://github.com/xhinker/sd_embed.git@main
 !pip install torchao --extra-index-url https://download.pytorch.org/whl/cu121 # full options are cpu/cu118/cu121/cu124
 !apt-get -y install -qq aria2
 %cd /kaggle/working/
