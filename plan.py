@@ -143,24 +143,26 @@ flush()
                         d[0] = f"TEMP{d[0]}"
                     if d[1][0] == "_":
                         d[1] = f"TEMP{d[1]}"
-                    if d[3][0] == "_":
-                        d[3] = f"TEMP{d[3]}"
+                    if d[4][0] == "_":
+                        d[4] = f"TEMP{d[3]}"
                     if not line:
                         r = f"""!python merge.py "DARE" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
+--beta {d[3]} \\
+--save_half --prune --save_safetensors --output "{d[4]}"
 flush()"""
                         final = d[3]
                     else:
                         r = f"""!python merge.py "DARE" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
 --alpha {d[2]} \\
---save_half --prune --save_safetensors --output "{d[3]}"
+--beta {d[3]} \\
+--save_half --prune --save_safetensors --output "{d[4]}"
 flush()
 
-{d[3]}=model("{d[3]}",1)"""
-                        final = d[3]
+{d[4]}=model("{d[4]}",1)"""
+                        final = d[4]
                 else:
                     if d[0][0] == "_":
                         d[0] = f"TEMP{d[0]}"
