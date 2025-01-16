@@ -32,15 +32,17 @@ def planit(filepath):
     res = []
     with open(filepath, mode="r+") as f:
         line = f.readline()
+        last = None
         while line:
             t = line.rstrip("\n")
             line = f.readline()
-            if t == "":
+            if t.replace(" ","") == "":
                 res.append("")
                 continue
             elif t.startswith("//"):
                 r = "#" + t[2:]
             elif t.startswith("+"):
+                last = "download"
                 t = t[1:]
                 try:
                     if "https://" not in res[-1] and res[-1] != "":
@@ -56,11 +58,16 @@ def planit(filepath):
                     d[0] = f"TEMP{d[0]}"
                 if "/api/" in t:
                     r = f"{d[0]} = old_custom_model(\"{d[1]}\",\"{d[0]}\",1,\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQR\")"
+                    final = d[0]
                 else:
                     r = f"{d[0]} = custom_model(\"{d[1]}\",\"{d[0]}\",mode=\"{mode}\")"
+                    final = d[0]
                 if "%LC" in t:
                     r = f"{d[0]} = model(\"{d[0]}\",1)"
             elif t.startswith("CM"):
+                if last != "merge":
+                    res.append("flush()")
+                last = "merge"
                 t = t[3:]
                 if res != []:
                     res.append("")
@@ -187,6 +194,9 @@ flush()
 {d[3]}=model("{d[3]}",1)"""
                         final = d[3]
             elif t.startswith("LB"):
+                if last != "merge":
+                    res.append("flush()")
+                last = "merge"
                 t = t[3:]
                 d=t.split(" ")
                 if d[0][0] == "_":
@@ -213,6 +223,9 @@ flush()
 {d[2]}=model("{d[2]}",1)"""
                     final = d[2]
             elif t.startswith("PR"):
+                if last != "merge":
+                    res.append("flush()")
+                last = "merge"
                 t = t[3:]
                 d = t.split(" ")
                 if d[0][0] == "_":
@@ -234,6 +247,7 @@ flush()
 {d[1]}=model("{d[1]}",1)"""
                     final = d[1]
             elif t.startswith("-"):
+                last = "download"
                 try:
                     if "remove_model" not in res[-1] and res[-1] != "":
                         res.append("")
@@ -1324,9 +1338,9 @@ def fix_diffusers_model_conversion(load_path: str, save_path: str):
 
       # save
       save_file(new_tensors, save_path)
-checkpoint = "Output"
+checkpoint = """+f"\"{final}\""+"""
 ext = "safetensors"
-cpath = "/kaggle/temp/models/"+checkpoint+"."+ext
+cpath = f"/kaggle/tmp/models/{checkpoint}.{ext}"
 chash = sha256(cpath, checkpoint)
 try:
   scd_changed = scd_name == SCHEDULERS[scheduler][2]
