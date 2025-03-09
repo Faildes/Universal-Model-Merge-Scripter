@@ -120,6 +120,14 @@ flush()
 {d[5]}=model("{d[5]}",1)"""
                             final = d[5]
                 elif "-" in t:
+                    if d[0][0] == "_":
+                        d[0] = f"TEMP{d[0]}"
+                    if d[1][0] == "_":
+                        d[1] = f"TEMP{d[1]}"
+                    if d[2][0] == "_":
+                        d[2] = f"TEMP{d[2]}"
+                    if d[4][0] == "_":
+                        d[4] = f"TEMP{d[4]}"
                     if not line:
                         r = f"""!python merge.py "AD" "/kaggle/tmp/models/" "{d[0]}.safetensors" "{d[1]}.safetensors" --model_2 "{d[2]}.safetensors" \\
 --vae "/kaggle/tmp/vae/VAE.safetensors" \\
