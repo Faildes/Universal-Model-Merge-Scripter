@@ -32,6 +32,7 @@ def planit(filepath):
     res = []
     with open(filepath, mode="r+") as f:
         line = f.readline()
+        line = line.replace("“","\"").replace("”","\"")
         last = None
         while line:
             t = line.rstrip("\n")
@@ -544,7 +545,7 @@ def custom_model(url, checkpoint_name=None, mode="checkpoint"):
   if os.path.exists(f"/kaggle/tmp/models/{checkpoint_name}.{ext}"):
     return f"/kaggle/tmp/models/{checkpoint_name}.{ext}"
   if "huggingface" in url:
-    user_header = f"\"Authorization: Bearer {user_token}\""
+    user_header = f"¥"Authorization: Bearer {user_token}¥""
     !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/models/ -o {checkpoint_name}.{ext}
   else:
     headers = {
@@ -1261,7 +1262,7 @@ def custom_model(url, name, format=0, loc=False, s256=None):
     ext = "safetensors"
   if not os.path.exists(f"/kaggle/tmp/models/{name}.{ext}"):
       if "huggingface" in url:
-        user_header = f"\"Authorization: Bearer {user_token}\""
+        user_header = f"\\"Authorization: Bearer {user_token}\\""
         !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/models/ -o {name}.{ext}
       else:
         headers = {
@@ -1297,7 +1298,7 @@ def custom_embed(url, embed_name, format=0):
   elif "pt" in url:
     ext = "pt"
   if "huggingface" in url:
-    user_header = f"\"Authorization: Bearer {user_token}\""
+    user_header = f"\\"Authorization: Bearer {user_token}\\""
     !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M --header={user_header} "{url}" -d /kaggle/tmp/embeddings/ -o {embed_name}.{ext}
   else:
     headers = {
