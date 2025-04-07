@@ -146,15 +146,6 @@ flush()
 {d[4]}=model("{d[4]}",1)"""
                         final = d[4]
                 elif "+D" in t:
-                    if "," in d[2]:
-                        j = d[2].split(",",1)
-                        j[0] = "\"0"
-                        d[2] = ",".join(j)
-                    else:
-                        j = ["\"0"] + ([d[2]] * 25)
-                        d[2] = ",".join(j)
-                    if not d[2].endswith("\""):
-                        d[2] += "\""
                     if d[0][0] == "_":
                         d[0] = f"TEMP{d[0]}"
                     if d[1][0] == "_":
@@ -600,36 +591,86 @@ def old_custom_model(url, checkpoint_name=None, format=0, sha256=None):
     sha256_set(f"{model_path}{checkpoint_name}.{ext}", f"checkpoint/{checkpoint_name}", sha256)
   return f"/kaggle/tmp/models/{checkpoint_name}.{ext}"
   
-def custom_vae(url, vae_name, format=0):
-  user_token = HFToken if "huggingface" in url else CVToken
-  ext = ""
-  if format == 0:
-    ext = "pt"
-  elif format == 1:
-    ext = "safetensors"
-  if "huggingface" in url:
-    user_header = f"\"Authorization: Bearer {user_token}\""
-    !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/vae/ -o {vae_name}.{ext}
-  else:
-    headers = {
-          'User-Agent': UserAgent().chrome,
-          'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Windows"',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
-          'Sec-Fetch-User': '?1',
-          'Sec-Gpc': '1',
-          'Upgrade-Insecure-Requests': '1',
-          'Authorization': f'Bearer {user_token}'
-    }
-    response = requests.get(url, headers=headers, allow_redirects=False)
-    download_link = response.headers["Location"]
-    !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {vae_name}.{ext}
+def custom_vae(url, vae_name=None):    
+    user_token = HFToken if "huggingface" in url else CVToken
+    if "civitai" in url:
+        if "api" in url:
+            headers = {
+                  'User-Agent': UserAgent().chrome,
+                  'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+                  'Sec-Ch-Ua-Mobile': '?0',
+                  'Sec-Ch-Ua-Platform': '"Windows"',
+                  'Sec-Fetch-Dest': 'document',
+                  'Sec-Fetch-Mode': 'navigate',
+                  'Sec-Fetch-Site': 'none',
+                  'Sec-Fetch-User': '?1',
+                  'Sec-Gpc': '1',
+                  'Upgrade-Insecure-Requests': '1',
+                  'Authorization': f'Bearer {user_token}'
+            }
+            response = requests.get(url, headers=headers, allow_redirects=False)
+            download_link = response.headers["Location"]
+            !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {vae_name}.{ext}
+        else:
+            pref = ["SafeTensor", "PickleTensor"]
+            cid=re.sub(r"\D", "", re.search("models/[0-9]+",url).group())
+            if "Version" in url and version is None:
+                version = re.sub(r"\D", "", re.search("modelVersionId=[0-9]+",url).group())
+            api=f"https://civitai.com/api/v1/models/{cid}"
+            response=requests.get(api)
+            if response.status_code == 200:
+                d=response.json()
+                model_name=d["name"] if vae_name is None else vae_name
+                model_version=version if version is not None else d["modelVersions"][0]["name"]
+                for k in d["modelVersions"]:
+                    if k["name"] == model_version or str(k["id"]) == model_version:
+                        model=k
+                        model_version=k["name"]
+                        break
+                meta_list = [a["metadata"]["format"] for a in model["files"]]
+                for p in pref:
+                    try:
+                        i = meta_list.index(p)
+                        file = model["files"][i]
+                        break
+                    except:
+                        continue
+                dllink=file["downloadUrl"]
+                sha256=file["hashes"]["SHA256"].lower()
+                ext = file["metadata"]["format"]
+                if ext == "SafeTensor":
+                    ex = "safetensors"
+                else:
+                    ex = "ckpt"
+                headers = {
+                      'User-Agent': UserAgent().chrome,
+                      'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+                      'Sec-Ch-Ua-Mobile': '?0',
+                      'Sec-Ch-Ua-Platform': '"Windows"',
+                      'Sec-Fetch-Dest': 'document',
+                      'Sec-Fetch-Mode': 'navigate',
+                      'Sec-Fetch-Site': 'none',
+                      'Sec-Fetch-User': '?1',
+                      'Sec-Gpc': '1',
+                      'Upgrade-Insecure-Requests': '1',
+                      'Authorization': f'Bearer {user_token}'
+                }
+                response = requests.get(url, headers=headers, allow_redirects=False)
+                download_link = response.headers["Location"]
+                !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {model_name}.{ex}
+                vae_name = model_name
+                ext = ex
+            else:
+                print("ERROR: VAE Not Found")
+                return None
+    elif "huggingface" in url:
+        user_header = f"\"Authorization: Bearer {user_token}\""
+        if "blob/main" in url:
+            url = url.replace("blob/main","resolve/main")
+        !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/vae/ -o {vae_name}.{ext}
     return f"/kaggle/tmp/vae/{vae_name}.{ext}"
 
-"""+f"""custom_vae("{vae}","VAE",1)
+"""+f"""custom_vae("{vae}","VAE")
 
 %cd /kaggle/working/merge-models
 
@@ -976,36 +1017,86 @@ def old_custom_model(url, checkpoint_name=None, format=0, sha256=None):
     sha256_set(f"{model_path}{checkpoint_name}.{ext}", f"checkpoint/{checkpoint_name}", sha256)
   return f"/kaggle/tmp/models/{checkpoint_name}.{ext}"
   
-def custom_vae(url, vae_name, format=0):
-  user_token = HFToken if "huggingface" in url else CVToken
-  ext = ""
-  if format == 0:
-    ext = "pt"
-  elif format == 1:
-    ext = "safetensors"
-  if "huggingface" in url:
-    user_header = f"\"Authorization: Bearer {user_token}\""
-    !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/vae/ -o {vae_name}.{ext}
-  else:
-    headers = {
-          'User-Agent': UserAgent().chrome,
-          'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Windows"',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
-          'Sec-Fetch-User': '?1',
-          'Sec-Gpc': '1',
-          'Upgrade-Insecure-Requests': '1',
-          'Authorization': f'Bearer {user_token}'
-    }
-    response = requests.get(url, headers=headers, allow_redirects=False)
-    download_link = response.headers["Location"]
-    !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {vae_name}.{ext}
+def custom_vae(url, vae_name=None):    
+    user_token = HFToken if "huggingface" in url else CVToken
+    if "civitai" in url:
+        if "api" in url:
+            headers = {
+                  'User-Agent': UserAgent().chrome,
+                  'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+                  'Sec-Ch-Ua-Mobile': '?0',
+                  'Sec-Ch-Ua-Platform': '"Windows"',
+                  'Sec-Fetch-Dest': 'document',
+                  'Sec-Fetch-Mode': 'navigate',
+                  'Sec-Fetch-Site': 'none',
+                  'Sec-Fetch-User': '?1',
+                  'Sec-Gpc': '1',
+                  'Upgrade-Insecure-Requests': '1',
+                  'Authorization': f'Bearer {user_token}'
+            }
+            response = requests.get(url, headers=headers, allow_redirects=False)
+            download_link = response.headers["Location"]
+            !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {vae_name}.{ext}
+        else:
+            pref = ["SafeTensor", "PickleTensor"]
+            cid=re.sub(r"\D", "", re.search("models/[0-9]+",url).group())
+            if "Version" in url and version is None:
+                version = re.sub(r"\D", "", re.search("modelVersionId=[0-9]+",url).group())
+            api=f"https://civitai.com/api/v1/models/{cid}"
+            response=requests.get(api)
+            if response.status_code == 200:
+                d=response.json()
+                model_name=d["name"] if vae_name is None else vae_name
+                model_version=version if version is not None else d["modelVersions"][0]["name"]
+                for k in d["modelVersions"]:
+                    if k["name"] == model_version or str(k["id"]) == model_version:
+                        model=k
+                        model_version=k["name"]
+                        break
+                meta_list = [a["metadata"]["format"] for a in model["files"]]
+                for p in pref:
+                    try:
+                        i = meta_list.index(p)
+                        file = model["files"][i]
+                        break
+                    except:
+                        continue
+                dllink=file["downloadUrl"]
+                sha256=file["hashes"]["SHA256"].lower()
+                ext = file["metadata"]["format"]
+                if ext == "SafeTensor":
+                    ex = "safetensors"
+                else:
+                    ex = "ckpt"
+                headers = {
+                      'User-Agent': UserAgent().chrome,
+                      'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+                      'Sec-Ch-Ua-Mobile': '?0',
+                      'Sec-Ch-Ua-Platform': '"Windows"',
+                      'Sec-Fetch-Dest': 'document',
+                      'Sec-Fetch-Mode': 'navigate',
+                      'Sec-Fetch-Site': 'none',
+                      'Sec-Fetch-User': '?1',
+                      'Sec-Gpc': '1',
+                      'Upgrade-Insecure-Requests': '1',
+                      'Authorization': f'Bearer {user_token}'
+                }
+                response = requests.get(url, headers=headers, allow_redirects=False)
+                download_link = response.headers["Location"]
+                !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {model_name}.{ex}
+                vae_name = model_name
+                ext = ex
+            else:
+                print("ERROR: VAE Not Found")
+                return None
+    elif "huggingface" in url:
+        user_header = f"\"Authorization: Bearer {user_token}\""
+        if "blob/main" in url:
+            url = url.replace("blob/main","resolve/main")
+        !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d /kaggle/tmp/vae/ -o {vae_name}.{ext}
     return f"/kaggle/tmp/vae/{vae_name}.{ext}"
 
-"""+f"""custom_vae("{vae}","VAE",1)
+"""+f"""custom_vae("{vae}","VAE")
 
 %cd /kaggle/working/merge-models
 
@@ -1349,34 +1440,44 @@ def fix_diffusers_model_conversion(load_path: str, save_path: str):
       save_file(new_tensors, save_path)
 checkpoint = """+f"\"{final}\""+"""
 ext = "safetensors"
+vpred = False
 cpath = f"/kaggle/tmp/models/{checkpoint}.{ext}"
 chash = sha256(cpath, checkpoint)
+sch = SCHEDULERS[scheduler][1]
+if vpred:
+    sch.update([("prediction_type", "v_prediction"),("rescale_betas_zero_snr", True)])
 try:
   scd_changed = scd_name == SCHEDULERS[scheduler][2]
 except:
   pass
 try:
-  pipe=StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=torch.float16, scheduler=scd, use_safetensors=True, variant="fp16")
+  pipet=StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=dtype, scheduler=scd, use_safetensors=True, variant="fp16")
   assert scd_changed
 except:
-  pipe = StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=torch.float16, use_safetensors=True, variant="fp16")
-  scd = SCHEDULERS[scheduler][0].from_config(pipe.scheduler.config, **SCHEDULERS[scheduler][1])
+  pipet = StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=dtype, use_safetensors=True, variant="fp16")
+  scd = SCHEDULERS[scheduler][0].from_config(pipet.scheduler.config, **sch)
   scd_name = SCHEDULERS[scheduler][2]
-  pipe=StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=torch.float16, scheduler=scd, use_safetensors=True, variant="fp16")
-pipe.safety_checker = None
-pipe = pipe.to("cuda:0")
+  pipet=StableDiffusionXLPipeline.from_single_file(cpath, torch_dtype=dtype, scheduler=scd, use_safetensors=True, variant="fp16")
+pipet.safety_checker = None
+pipe = pipet.to("cuda:0")
+del pipet
+flush()
+refinert=StableDiffusionXLImg2ImgPipeline.from_single_file(cpath, torch_dtype=dtype, scheduler=scd, use_safetensors=True, variant="fp16")
+refinert.safety_checker = None
+refiner = refinert.to("cuda:1")
+del refinert
 flush()
 
 #@markdown Choose the alpha of LoRAs you want
-novasphere = True
+novasphere = False
 modelpath = "/kaggle/tmp/models/"
 lpath = {}
 if novasphere:
   lpath["novasphere"] = [custom_model("https://civitai.com/models/439098/nova-sphere-style","novasphere",1),modelpath,""]
 
 #@markdown Choose the Embeddings you want
-negativexl = True 
-aissist = True 
+negativexl = False 
+aissist = False 
 
 epath = {}
 if negativexl:
@@ -1389,7 +1490,8 @@ if aissist:
   epath[embed]=custom_embed(embed_url,embed)
 from safetensors.torch import load_file
 
-init_pipe = pipe""")
+init_pipe = pipe
+init_refiner = refiner""")
     dp.append("""#@title t2i
 import torch
 import os
@@ -1402,12 +1504,14 @@ import random
 import copy
 from sd_embed.embedding_funcs import get_weighted_text_embeddings_sdxl
 from PIL.PngImagePlugin import PngInfo
+
 from safetensors.torch import load_file
 from diffusers import StableDiffusionXLPipeline
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from accelerate import PartialState
 import numpy
 pipe = init_pipe
+refiner = init_refiner
 
 def load_lora_weights(pipe, pretrained_model_name_or_path_or_dict: Union[str, Dict[str, torch.Tensor]], **kwargs):
     # We could have accessed the unet config from `lora_state_dict()` too. We pass
@@ -1524,21 +1628,25 @@ if not os.path.exists("/kaggle/working/t2i_images"):
 
 mdir = "/kaggle/tmp/models/"
 idir = "/kaggle/working/t2i_images/"
-prompt = "score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up, realistic, photo, dynamic angle, dramatic shadows, high quality, BREAK, cyberpunk, blue lights, cinematic portrait photo, young woman with (shoulder-length)0.5 brunette hair and hazel eyes, wearing a black formfitting high-tech futuristic outfit and pants"
-neg = "blurry, signature, username, watermark, jpeg artifacts, normal quality, worst quality, low quality, missing fingers, extra digits, fewer digits, bad eye" #@param {type:"string"}
 
 w=768 #@param {type:"slider", min:512, max:2048, step:128}
-h=1280 #@param {type:"slider", min:512, max:2048, step:128}
+h=1152 #@param {type:"slider", min:512, max:2048, step:128}
+
+prompt = "masterpiece, best quality, amazing quality, very aesthetic, high resolution, ultra-detailed, absurdres, newest, scenery, (dappled sunlight:1.2), rim light, backlit, dramatic shadow, 1girl, long blonde hair, blue eyes, shiny eyes, parted lips, medium breasts, puffy sleeve white dress, forest, flowers, white butterfly, looking at viewer, leaning side against tree, vines, green, arms, upper body, close-up, dutch angle, shiny skin, BREAK, eyes, lips, dramatic shadow, detailed eyes, detailed hair, depth of field, vignetting, volumetric lighting"
+global_seed=-1 #@param
+
+neg = "modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated" #@param {type:"string"}
+
 hires_steps=40 #@param {type:"slider", min:10, max:100, step:1}
 hires_scale = 1.5 #@param {type:"slider", min:1.0, max:4.0, step:0.1}
-refine=True
-global_seed=-1 #@param
+hires=False
 global_hires_seed=-2 #@param
-steps=40 #@param {type:"slider", min:10, max:50, step:1}
-guidance=6 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
-denoise=0.6 #@param {type:"slider", min:0.1, max:1.0, step:0.01}
-clip_skip = 1 #@param {type:"slider", min:1, max:12, step:1}
-num_gen = 1 #@param {type:"slider", min:1, max:4, step:1}
+steps=20 #@param {type:"slider", min:10, max:50, step:1}
+guidance=4.5 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
+guidance_h=4 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
+denoise=0.4 #@param {type:"slider", min:0.1, max:1.0, step:0.01}
+clip_skip = 2 #@param {type:"slider", min:1, max:12, step:1}
+num_gen = 4 #@param {type:"slider", min:1, max:4, step:1}
 num_rp = 1 #@param {type:"slider", min:1, max:2, step:1}
 rand_seed = 0
 copy_seed = False
@@ -1547,6 +1655,7 @@ if global_hires_seed == -1: rand_seed += 2
 if global_hires_seed == -2: copy_seed = True
 lhash = {}
 pp, lhash = lora_prompt(prompt, pipe, lhash)
+pp = bpro(pp)
 (embeds, negative_embeds, pooled, neg_pooled)=get_weighted_text_embeddings_sdxl(pipe,prompt=pp,neg_prompt=neg)
 
 device = "cpu"
@@ -1565,36 +1674,74 @@ while i < num_gen:
   seed = int(seeds[i])
   hires_seed = int(hires_seeds[i])
   geninfo = f"{prompt}\\nNegative prompt: {neg}\\nSteps: {steps}, Sampler: {scd_name}, CFG scale: {guidance}, Global Seed: {global_seed}, Seed: {seed}, Size: {w}x{h}, Clip skip: {clip_skip}, Model hash: {chash}, Model: {checkpoint}"
+  generator = torch.Generator(device).manual_seed(seed)
+  if hires:
+      geninfo += f", Hires steps: {hires_steps}, Hires upscale: {hires_scale}, Denoising strength: {denoise}, Hires CFG Scale: {guidance_h}"
+      generator_h = torch.Generator(device).manual_seed(hires_seed)
   if len(lhash) > 0:
-    geninfo += ", Lora hashes: \""
+    geninfo += ", Lora hashes: \\""
     n = ""
     for q, u in lhash.items():
       n += f"{q}: {u}, "
     n = n[:-2]
-    geninfo += f"{n}\""
+    geninfo += f"{n}\\""
   metadata = PngInfo()
   metadata.add_text("parameters", geninfo)
-  generator = torch.Generator(device).manual_seed(seed)
-  with torch.inference_mode():
-      image = pipe(
-              prompt_embeds=embeds, 
-              pooled_prompt_embeds=pooled, 
-              negative_prompt_embeds=negative_embeds, 
-              negative_pooled_prompt_embeds=neg_pooled, 
-              height=h, width=w, 
-              num_inference_steps=steps, 
-              guidance_scale=guidance,
-              generator=generator).images[0]
+  image = pipe(
+          prompt_embeds=embeds, 
+          pooled_prompt_embeds=pooled, 
+          negative_prompt_embeds=negative_embeds, 
+          negative_pooled_prompt_embeds=neg_pooled, 
+          height=h, width=w, 
+          num_inference_steps=steps, 
+          guidance_scale=guidance,
+          clip_skip=clip_skip,
+          generator=generator).images[0]
+  if hires:
+      flush()
+      hw = (int(w * hires_scale)//8)*8
+      hh = (int(h * hires_scale)//8)*8
+      image_h = image.resize((hw, hh))
+      image = refiner(
+          prompt_embeds=embeds, 
+          pooled_prompt_embeds=pooled, 
+          negative_prompt_embeds=negative_embeds, 
+          negative_pooled_prompt_embeds=neg_pooled,
+          num_inference_steps=hires_steps, 
+          guidance_scale=guidance_h,strength=denoise, clip_skip=clip_skip,
+          image=image_h,
+          generator=generator_h).images[0]
   flush()
-  display(image.resize((int(w*disp_size),int(h*disp_size))))
+  display(image.resize((int(w*disp_size),int(h*disp_size)),Image.Resampling.LANCZOS))
   image.save(f"{idir}{i:05d}_{global_seed}.png", pnginfo=metadata)
+  flush()
   i += 1
 flush()
-del pipe
+del pipe, embeds, negative_embeds, pooled, neg_pooled
 torch.device("cpu")
 torch.cuda.empty_cache()
 torch.device("cuda:0")
+torch.cuda.empty_cache()
+del refiner
+torch.device("cuda:1")
 torch.cuda.empty_cache()""")
+    dp.append("""#@title Force Flush
+flush()
+del pipe, embeds, negative_embeds, pooled, neg_pooled
+torch.device("cpu")
+torch.cuda.empty_cache()
+torch.device("cuda:0")
+torch.cuda.empty_cache()
+del refiner
+torch.device("cuda:1")
+torch.cuda.empty_cache()
+flush()""")
+    dp.append("""#@title Image ZIP
+name = "download"
+if os.path.exists(f"/kaggle/working/{name}.zip"):
+    os.remove(f"/kaggle/working/{name}.zip")
+!zip -r "/kaggle/working/{name}.zip" "/kaggle/working/t2i_images"
+""")
     tr = data_construct(dp)
     with open(saveas, mode="w+") as f:
         f.write("""{"cells":[""")
