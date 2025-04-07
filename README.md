@@ -13,11 +13,11 @@ Press Save As .ipynb, you'll get Jupiter Notebook file
 `-Name`: delete the model  
 If the Name starts with **_** , this would automatically replaces to **TEMP_**  
 `CM A + B alpha Result`: Weight Sum of 2 models saved as Result  
-`CM A +D B alpha Result`: DARE Merge of 2 models saved as Result  
+`CM A +D B alpha beta Result`: DARE Merge of 2 models saved as Result  
 `CM A + B +S C alpha beta Result`: Sum Twice of 3 models saved as Result  
 `CM A + B +T C alpha beta Result`: Triple Sum of 3 models saved as Result  
 `CM A + B - C alpha Result`: Add Difference of 3 models saved as Result  
-`LB Checkpoint A:alpha,B:beta,C:gamma Result`: Merge multiple LoRAs to Checkpoint, saved as Result  
+`LB Checkpoint A:alpha,B:beta,C:gamma... Result`: Merge multiple LoRAs to Checkpoint, saved as Result  
 `PR Checkpoint Result`: Prune the checkpoint and saved as Result
 
 *Example* (Using the script for NovaFurry v3.0) :  
