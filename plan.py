@@ -595,6 +595,7 @@ def custom_vae(url, vae_name=None):
     user_token = HFToken if "huggingface" in url else CVToken
     if "civitai" in url:
         if "api" in url:
+            ext = "safetensors" if "SafeTensor" in url else "ckpt"
             headers = {
                   'User-Agent': UserAgent().chrome,
                   'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
@@ -614,8 +615,10 @@ def custom_vae(url, vae_name=None):
         else:
             pref = ["SafeTensor", "PickleTensor"]
             cid=re.sub(r"\D", "", re.search("models/[0-9]+",url).group())
-            if "Version" in url and version is None:
+            if "Version" in url:
                 version = re.sub(r"\D", "", re.search("modelVersionId=[0-9]+",url).group())
+            else:
+                version = None
             api=f"https://civitai.com/api/v1/models/{cid}"
             response=requests.get(api)
             if response.status_code == 200:
@@ -636,7 +639,6 @@ def custom_vae(url, vae_name=None):
                     except:
                         continue
                 dllink=file["downloadUrl"]
-                sha256=file["hashes"]["SHA256"].lower()
                 ext = file["metadata"]["format"]
                 if ext == "SafeTensor":
                     ex = "safetensors"
@@ -655,7 +657,7 @@ def custom_vae(url, vae_name=None):
                       'Upgrade-Insecure-Requests': '1',
                       'Authorization': f'Bearer {user_token}'
                 }
-                response = requests.get(url, headers=headers, allow_redirects=False)
+                response = requests.get(dllink, headers=headers, allow_redirects=False)
                 download_link = response.headers["Location"]
                 !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {model_name}.{ex}
                 vae_name = model_name
@@ -1021,6 +1023,7 @@ def custom_vae(url, vae_name=None):
     user_token = HFToken if "huggingface" in url else CVToken
     if "civitai" in url:
         if "api" in url:
+            ext = "safetensors" if "SafeTensor" in url else "ckpt"
             headers = {
                   'User-Agent': UserAgent().chrome,
                   'Sec-Ch-Ua': '"Brave";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
@@ -1040,8 +1043,10 @@ def custom_vae(url, vae_name=None):
         else:
             pref = ["SafeTensor", "PickleTensor"]
             cid=re.sub(r"\D", "", re.search("models/[0-9]+",url).group())
-            if "Version" in url and version is None:
+            if "Version" in url:
                 version = re.sub(r"\D", "", re.search("modelVersionId=[0-9]+",url).group())
+            else:
+                version = None
             api=f"https://civitai.com/api/v1/models/{cid}"
             response=requests.get(api)
             if response.status_code == 200:
@@ -1062,7 +1067,6 @@ def custom_vae(url, vae_name=None):
                     except:
                         continue
                 dllink=file["downloadUrl"]
-                sha256=file["hashes"]["SHA256"].lower()
                 ext = file["metadata"]["format"]
                 if ext == "SafeTensor":
                     ex = "safetensors"
@@ -1081,7 +1085,7 @@ def custom_vae(url, vae_name=None):
                       'Upgrade-Insecure-Requests': '1',
                       'Authorization': f'Bearer {user_token}'
                 }
-                response = requests.get(url, headers=headers, allow_redirects=False)
+                response = requests.get(dllink, headers=headers, allow_redirects=False)
                 download_link = response.headers["Location"]
                 !aria2c --console-log-level=error -c -x 16 -s 16 -k 1M "{download_link}" -d "/kaggle/tmp/vae/" -o {model_name}.{ex}
                 vae_name = model_name
