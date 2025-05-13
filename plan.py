@@ -1237,6 +1237,13 @@ SCHEDULERS = {
     "lms_karras": [diffusers.schedulers.LMSDiscreteScheduler,{"use_karras_sigmas":True},"LMS Karras"],
     "pndm": [diffusers.schedulers.PNDMScheduler,{},"PNDM"],
 }
+
+mt = {
+    "fp16": torch.float16,
+    "fp32": torch.float32,
+    "bf16": torch.bfloat16
+}
+
 cache_filename = os.path.join("/kaggle/tmp/", "cache.json")
 cache_data = None
 scheduler = "choose from below list" #@param ["unipc", "euler_a", "euler", "ddim", "ddpm", "deis", "dpm2", "dpm2_karras", "dpm2-a", "dpm2-a_karras", "dpm++_2s_a", "dpm++_2s_a_karras", "dpm++_2m", "dpm++_2m_karras", "dpm++_2m_sde", "dpm++_2m_sde_karras", "dpm++_sde", "dpm++_sde_karras", "heun", "heun_karras", "lms", "lms_karras", "pndm"]
@@ -1445,10 +1452,12 @@ def fix_diffusers_model_conversion(load_path: str, save_path: str):
       save_file(new_tensors, save_path)
 checkpoint = """+f"\"{final}\""+"""
 ext = "safetensors"
+model_type="fp16"
 vpred = False
 cpath = f"/kaggle/tmp/models/{checkpoint}.{ext}"
 chash = sha256(cpath, checkpoint)
 sch = SCHEDULERS[scheduler][1]
+dtype=mt[model_type]
 if vpred:
     sch.update([("prediction_type", "v_prediction"),("rescale_betas_zero_snr", True)])
 try:
