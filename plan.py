@@ -262,7 +262,8 @@ flush()
 
 def create_plan(filepath, saveas, title, vae, CivitAPI, HuggingAPI, UR):
     res = []
-    pre = r"""from fake_useragent import UserAgent
+    pre = r"""#@title Model Merge / Model Download
+from fake_useragent import UserAgent
 import os
 import shutil
 from huggingface_hub import upload_file
@@ -292,7 +293,7 @@ def remove_model(path):
 def make_pref(p,mode):
     pref_set = {
         "size": ["full","pruned"],
-        "fp": ["fp16","bf16","fp32"],
+        "fp": ["fp16","bf16","fp8","fp32"],
         "format": ["PickleTensor","SafeTensor"]}
     def lsrt(lst,odr):
         return [lst[i] for i in odr]
@@ -310,7 +311,11 @@ def make_pref(p,mode):
         elif n[1] == 2:
             srt["fp"] = lsrt(pref_set["fp"],[2,0,1])
         srt["format"] = lsrt(pref_set["format"],[1,0]) if n[2]==1 else pref_set["format"]
-        r=[[0,0,0],[1, 0, 0],[0, 1, 0],[1, 1, 0],[0, 2, 0],[1, 2, 0],[0, 0, 1],[1, 0, 1],[0, 1, 1],[1, 1, 1],[0, 2, 1],[1, 2, 1]]
+        r=[]
+        for i in range(len(pref_set["format"])):
+            for j in range(len(pref_set["fp"])):
+                for k in range(len(pref_set["size"])):
+                    r.append([k,j,i])
         res=[]
         for i in r:
             f = {
@@ -691,7 +696,8 @@ def create_plan_ipynb(filepath, saveas, title, vae, CivitAPI, HuggingAPI,UR):
 %cd /kaggle/working/
 !git clone https://github.com/Faildes/merge-models -b notebook"""]
     res = []
-    pre = r"""from fake_useragent import UserAgent
+    pre = r"""#@title Model Merge / Model Download
+from fake_useragent import UserAgent
 import os
 import shutil
 from huggingface_hub import upload_file
@@ -721,7 +727,7 @@ def remove_model(path):
 def make_pref(p,mode):
     pref_set = {
         "size": ["full","pruned"],
-        "fp": ["fp16","bf16","fp32"],
+        "fp": ["fp16","bf16","fp8","fp32"],
         "format": ["PickleTensor","SafeTensor"]}
     def lsrt(lst,odr):
         return [lst[i] for i in odr]
@@ -739,7 +745,11 @@ def make_pref(p,mode):
         elif n[1] == 2:
             srt["fp"] = lsrt(pref_set["fp"],[2,0,1])
         srt["format"] = lsrt(pref_set["format"],[1,0]) if n[2]==1 else pref_set["format"]
-        r=[[0,0,0],[1, 0, 0],[0, 1, 0],[1, 1, 0],[0, 2, 0],[1, 2, 0],[0, 0, 1],[1, 0, 1],[0, 1, 1],[1, 1, 1],[0, 2, 1],[1, 2, 1]]
+        r=[]
+        for i in range(len(pref_set["format"])):
+            for j in range(len(pref_set["fp"])):
+                for k in range(len(pref_set["size"])):
+                    r.append([k,j,i])
         res=[]
         for i in r:
             f = {
@@ -1111,7 +1121,8 @@ def custom_vae(url, vae_name=None):
     nwx += pre
     nwx += "\n".join(res)
     dp.append(nwx)
-    dp.append(f"""from huggingface_hub import upload_file
+    dp.append(f"""#@title Upload the model to huggingface
+from huggingface_hub import upload_file
 User_Repository = "{UR}"
 %cd /kaggle/tmp/models
 upload_file(path_or_fileobj="/kaggle/tmp/models/{final}.safetensors", 
@@ -1133,6 +1144,13 @@ from diffusers import StableDiffusionXLPipeline, StableDiffusionPipeline, Stable
 import diffusers
 import filelock, json, hashlib
 import re
+
+checkpoint = """+f"\"{final}\""+"""
+ext = "safetensors"
+model_type="fp16"
+vpred = False
+scheduler = "choose from @param on right" #@param ["unipc", "euler_a", "euler", "ddim", "ddpm", "deis", "dpm2", "dpm2_karras", "dpm2-a", "dpm2-a_karras", "dpm++_2s_a", "dpm++_2s_a_karras", "dpm++_2m", "dpm++_2m_karras", "dpm++_2m_sde", "dpm++_2m_sde_karras", "dpm++_sde", "dpm++_sde_karras", "heun", "heun_karras", "lms", "lms_karras", "pndm"]
+
 pref = {
     "format": "SafeTensor",
     "size": "pruned",
@@ -1246,7 +1264,6 @@ mt = {
 
 cache_filename = os.path.join("/kaggle/tmp/", "cache.json")
 cache_data = None
-scheduler = "choose from below list" #@param ["unipc", "euler_a", "euler", "ddim", "ddpm", "deis", "dpm2", "dpm2_karras", "dpm2-a", "dpm2-a_karras", "dpm++_2s_a", "dpm++_2s_a_karras", "dpm++_2m", "dpm++_2m_karras", "dpm++_2m_sde", "dpm++_2m_sde_karras", "dpm++_sde", "dpm++_sde_karras", "heun", "heun_karras", "lms", "lms_karras", "pndm"]
 def cache(subsection):
     global cache_data
 
@@ -1450,10 +1467,6 @@ def fix_diffusers_model_conversion(load_path: str, save_path: str):
 
       # save
       save_file(new_tensors, save_path)
-checkpoint = """+f"\"{final}\""+"""
-ext = "safetensors"
-model_type="fp16"
-vpred = False
 cpath = f"/kaggle/tmp/models/{checkpoint}.{ext}"
 chash = sha256(cpath, checkpoint)
 sch = SCHEDULERS[scheduler][1]
@@ -1527,37 +1540,28 @@ import numpy
 pipe = init_pipe
 refiner = init_refiner
 
-def load_lora_weights(pipe, pretrained_model_name_or_path_or_dict: Union[str, Dict[str, torch.Tensor]], **kwargs):
-    # We could have accessed the unet config from `lora_state_dict()` too. We pass
-    # it here explicitly to be able to tell that it's coming from an SDXL
-    # pipeline.
-    state_dict, network_alphas = pipe.lora_state_dict(
-        pretrained_model_name_or_path_or_dict,
-        unet_config=pipe.unet.config,
-        **kwargs,
-    )
-    pipe.load_lora_into_unet(state_dict, network_alphas=network_alphas, unet=pipe.unet)
+w=768 #@param {type:"slider", min:512, max:2048, step:128}
+h=1152 #@param {type:"slider", min:512, max:2048, step:128}
 
-    text_encoder_state_dict = {k: v for k, v in state_dict.items() if "text_encoder." in k}
-    if len(text_encoder_state_dict) > 0:
-        pipe.load_lora_into_text_encoder(
-            text_encoder_state_dict,
-            network_alphas=network_alphas,
-            text_encoder=pipe.text_encoder,
-            prefix="text_encoder",
-            lora_scale=pipe.lora_scale,
-        )
+prompt = "masterpiece, best quality, amazing quality, very aesthetic, high resolution, ultra-detailed, absurdres, newest, scenery, (dappled sunlight:1.2), rim light, backlit, dramatic shadow, 1girl, long blonde hair, blue eyes, shiny eyes, parted lips, medium breasts, puffy sleeve white dress, forest, flowers, white butterfly, looking at viewer, leaning side against tree, vines, green, arms, upper body, close-up, dutch angle, shiny skin, BREAK, eyes, lips, dramatic shadow, detailed eyes, detailed hair, depth of field, vignetting, volumetric lighting"
+global_seed=-1 #@param
 
-    text_encoder_2_state_dict = {k: v for k, v in state_dict.items() if "text_encoder_2." in k}
-    if len(text_encoder_2_state_dict) > 0:
-        pipe.load_lora_into_text_encoder(
-            text_encoder_2_state_dict,
-            network_alphas=network_alphas,
-            text_encoder=pipe.text_encoder_2,
-            prefix="text_encoder_2",
-            lora_scale=pipe.lora_scale,
-        )
-        
+neg = "modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated" #@param {type:"string"}
+
+hires_steps=40 #@param {type:"slider", min:10, max:100, step:1}
+hires_scale = 1.5 #@param {type:"slider", min:1.0, max:4.0, step:0.1}
+hires=False
+global_hires_seed=-2 #@param
+steps=20 #@param {type:"slider", min:10, max:50, step:1}
+guidance=4.5 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
+guidance_h=4 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
+denoise=0.4 #@param {type:"slider", min:0.1, max:1.0, step:0.01}
+clip_skip = 2 #@param {type:"slider", min:1, max:12, step:1}
+num_gen = 4 #@param {type:"slider", min:1, max:4, step:1}
+num_rp = 1 #@param {type:"slider", min:1, max:2, step:1}
+
+idir = "/kaggle/working/t2i_images/"
+
 def lora_prompt(prompt, pipe, lhash):
     loras = []
     adap_list=[]
@@ -1612,6 +1616,7 @@ def lora_prompt(prompt, pipe, lhash):
     pipe.set_adapters(adap_list, adapter_weights=alphas)
     #refine.set_adapters(adap_list, adapter_weights=alphas)
     return prompt, lhash
+    
 def flush():
   gc.collect()
   torch.cuda.empty_cache()
@@ -1637,31 +1642,11 @@ def bpro(prompt):
         nl.append(x[0])
     return ",".join(nl)
 
-if not os.path.exists("/kaggle/working/t2i_images"):
-  os.mkdir("/kaggle/working/t2i_images")
+if not os.path.exists(idir):
+  os.mkdir(idir)
 
 mdir = "/kaggle/tmp/models/"
-idir = "/kaggle/working/t2i_images/"
 
-w=768 #@param {type:"slider", min:512, max:2048, step:128}
-h=1152 #@param {type:"slider", min:512, max:2048, step:128}
-
-prompt = "masterpiece, best quality, amazing quality, very aesthetic, high resolution, ultra-detailed, absurdres, newest, scenery, (dappled sunlight:1.2), rim light, backlit, dramatic shadow, 1girl, long blonde hair, blue eyes, shiny eyes, parted lips, medium breasts, puffy sleeve white dress, forest, flowers, white butterfly, looking at viewer, leaning side against tree, vines, green, arms, upper body, close-up, dutch angle, shiny skin, BREAK, eyes, lips, dramatic shadow, detailed eyes, detailed hair, depth of field, vignetting, volumetric lighting"
-global_seed=-1 #@param
-
-neg = "modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated" #@param {type:"string"}
-
-hires_steps=40 #@param {type:"slider", min:10, max:100, step:1}
-hires_scale = 1.5 #@param {type:"slider", min:1.0, max:4.0, step:0.1}
-hires=False
-global_hires_seed=-2 #@param
-steps=20 #@param {type:"slider", min:10, max:50, step:1}
-guidance=4.5 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
-guidance_h=4 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
-denoise=0.4 #@param {type:"slider", min:0.1, max:1.0, step:0.01}
-clip_skip = 2 #@param {type:"slider", min:1, max:12, step:1}
-num_gen = 4 #@param {type:"slider", min:1, max:4, step:1}
-num_rp = 1 #@param {type:"slider", min:1, max:2, step:1}
 rand_seed = 0
 copy_seed = False
 if global_seed == -1: rand_seed += 1
