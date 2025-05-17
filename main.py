@@ -31,7 +31,7 @@ else:
 def filedialog_clicked():
     fTyp = [("Text File","*.txt")]
     iFile = cp("filepath")
-    iFilePath = filedialog.askopenfilename(filetype = fTyp, title = "Select Planned File Path", initialdir = iFile)
+    iFilePath = filedialog.askopenfilename(filetypes = fTyp, title = "Select Planned File Path", initialdir = iFile)
     fileentry.delete(0, tk.END)
     fileentry.insert(tk.END, iFilePath)
     config["filepath"] = iFilePath
@@ -56,7 +56,7 @@ def main():
     menu.add_cascade(label='Help', menu=menu_file)
     menu_file.add_command(label='About', command=about)
 
-    win.geometry("330x270+100+120")
+    win.geometry("330x360+100+120")
     win.resizable(True, True)
     win.title("Model Planner")
 
@@ -80,7 +80,7 @@ def main():
     def filedialog_clicked():
         fTyp = [("Text File","*.txt")]
         iFile = cp("filepath")
-        iFilePath = filedialog.askopenfilename(filetype = fTyp, title = "Select Planned File Path", initialdir = iFile)
+        iFilePath = filedialog.askopenfilename(filetypes = fTyp, title = "Select Planned File Path", initialdir = iFile)
         fileentry.delete(0, tk.END)
         fileentry.insert(tk.END, iFilePath)
         config["filepath"] = iFilePath
