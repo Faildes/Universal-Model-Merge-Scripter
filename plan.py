@@ -1531,7 +1531,7 @@ import random
 import copy
 from sd_embed.embedding_funcs import get_weighted_text_embeddings_sdxl
 from PIL.PngImagePlugin import PngInfo
-
+from PIL import Image, ImageEnhance
 from safetensors.torch import load_file
 from diffusers import StableDiffusionXLPipeline
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
