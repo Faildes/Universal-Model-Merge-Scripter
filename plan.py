@@ -30,6 +30,7 @@ def data_construct(l):
 
 def planit(filepath):
     res = []
+    lora = []
     with open(filepath, mode="r+") as f:
         line = f.readline()
         line = line.replace("“","\"").replace("”","\"")
@@ -53,6 +54,7 @@ def planit(filepath):
                 d = t.replace(",","").split(" ")
                 if "%LR" in t:
                     mode = "lora"
+                    lora.append(d[1])
                 else:
                     mode = "checkpoint"
                 if d[0][0] == "_":
@@ -254,11 +256,20 @@ flush()
                 except:
                     pass
                 d = t.replace("-","")
+                if d in lora:
+                    lora.remove(d)
                 if d[0] == "_":
                     d = f"TEMP{d}"
                 r = f"remove_model({d})"
             res.append(r)
     return res, final
+,lora
+
+def lpaths(l):
+    res = ""
+    for x in l:
+        res+=f"lpath[\"{x}\"] = [\"/kaggle/tmp/models/{x}.safetensors\",\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQR\"]\n"
+    return res
 
 def create_plan(filepath, saveas, title, vae, CivitAPI, HuggingAPI, UR):
     res = []
@@ -682,7 +693,7 @@ def custom_vae(url, vae_name=None):
 %cd /kaggle/working/merge-models
 
 """
-    res, _ = planit(filepath)
+    res, _, _ = planit(filepath)
     with open(saveas, mode="a+") as f:
         f.write(f"#{title}\n\n")
         f.write(pre)
@@ -1116,7 +1127,7 @@ def custom_vae(url, vae_name=None):
 %cd /kaggle/working/merge-models
 
 """
-    res, final = planit(filepath)
+    res, final, loras = planit(filepath)
     nwx = f"#{title}\n\n"
     nwx += pre
     nwx += "\n".join(res)
@@ -1407,6 +1418,7 @@ def custom_model(url, name, format=0, loc=False, s256=None):
     s256 = sha256(f"/kaggle/tmp/models/{name}.{ext}", name)
   print(s256)
   return [f"/kaggle/tmp/models/{name}.{ext}",s256]
+  
 def custom_embed(url, embed_name, format=0):
   user_token = HFToken if "huggingface" in url else CVToken
   if format == 0:
@@ -1499,6 +1511,7 @@ flush()
 novasphere = False
 modelpath = "/kaggle/tmp/models/"
 lpath = {}
+"""+lpaths(lora)+"""
 if novasphere:
   lpath["novasphere"] = [custom_model("https://civitai.com/models/439098/nova-sphere-style","novasphere",1),modelpath,""]
 
