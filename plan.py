@@ -1561,19 +1561,54 @@ global_seed=-1 #@param
 
 neg = "modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated" #@param {type:"string"}
 
-hires_steps=40 #@param {type:"slider", min:10, max:100, step:1}
-hires_scale = 1.5 #@param {type:"slider", min:1.0, max:4.0, step:0.1}
-hires=False
-global_hires_seed=-2 #@param
 steps=20 #@param {type:"slider", min:10, max:50, step:1}
 guidance=4.5 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
-guidance_h=4 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
+global_hires_seed=-2 #@param
+hires=False
 denoise=0.4 #@param {type:"slider", min:0.1, max:1.0, step:0.01}
+hires_steps=40 #@param {type:"slider", min:10, max:100, step:1}
+hires_scale = 1.5 #@param {type:"slider", min:1.0, max:4.0, step:0.1}
+guidance_h=4 #@param {type:"slider", min:0.5, max:15.0, step:0.5}
 clip_skip = 2 #@param {type:"slider", min:1, max:12, step:1}
 num_gen = 4 #@param {type:"slider", min:1, max:4, step:1}
 num_rp = 1 #@param {type:"slider", min:1, max:2, step:1}
+adjust = {
+    'shadow':    [0, 0, 0, 1.0, 1.0],    # Shadow RGBBrC
+    'middle':    [0, 0, 0, 1.0, 1.0],     # Middle RGBBrC
+    'highlight': [0, 0, 0, 1.0, 1.0],    # Highlight RGBBrC
+}
 
 idir = "/kaggle/working/t2i_images/"
+
+def color_balance(img: Image.Image, adj: dict) -> Image.Image:
+    for k in ('shadow', 'middle', 'highlight'):
+        v = adj.get(k)
+        if not isinstance(v, (list, tuple)) or len(v) != 5:
+            raise ValueError(f"adjustments['{k}'] must be a length-5 list or tuple")
+    mode = img.mode
+    if mode == 'RGBA':
+        rgb, alpha = img.convert('RGB'), img.split()[-1]
+    else:
+        alpha = None
+        rgb = img.convert('RGB') if mode != 'RGB' else img
+    orig = numpy.array(rgb, dtype=numpy.float32)
+    lum = orig.mean(axis=2)
+    ws = numpy.clip((128.0 - lum) / 128.0, 0.0, 1.0)
+    wh = numpy.clip((lum - 128.0) / 128.0, 0.0, 1.0)
+    wm = 1.0 - ws - wh
+    res = numpy.zeros_like(orig)
+    for w, region in zip((ws, wm, wh), ('shadow', 'middle', 'highlight')):
+        r, g, b, bright, contrast = adj[region]
+        af = numpy.array([r, g, b], dtype=numpy.float32) / 100.0
+        delta = (255.0 - orig) * numpy.maximum(af, 0.0) + orig * numpy.minimum(af, 0.0)
+        rv = (orig + delta) * bright
+        rv = (rv - 128.0) * contrast + 128.0
+        rv = numpy.clip(rv, 0.0, 255.0)
+        res += rv * w[..., None]
+    out = Image.fromarray(numpy.clip(res, 0.0, 255.0).astype(numpy.uint8), 'RGB')
+    if alpha is not None:
+        out = Image.merge('RGBA', (*out.split(), alpha))
+    return out
 
 def lora_prompt(prompt, pipe, lhash):
     loras = []
@@ -1660,15 +1695,11 @@ if not os.path.exists(idir):
 
 mdir = "/kaggle/tmp/models/"
 
-rand_seed = 0
-copy_seed = False
-if global_seed == -1: rand_seed += 1
-if global_hires_seed == -1: rand_seed += 2
-if global_hires_seed == -2: copy_seed = True
+rand_seed = int(global_seed == -1) + 2 * int(global_hires_seed == -1)
+copy_seed = global_hires_seed == -2
 lhash = {}
 pp, lhash = lora_prompt(prompt, pipe, lhash)
-pp = bpro(pp)
-(embeds, negative_embeds, pooled, neg_pooled)=get_weighted_text_embeddings_sdxl(pipe,prompt=pp,neg_prompt=neg)
+(embeds, negative_embeds, pooled, neg_pooled)=get_weighted_text_embeddings_sdxl(pipe,prompt=bpro(pp),neg_prompt=neg)
 
 device = "cpu"
 i = 0
@@ -1688,7 +1719,7 @@ while i < num_gen:
   geninfo = f"{prompt}\\nNegative prompt: {neg}\\nSteps: {steps}, Sampler: {scd_name}, CFG scale: {guidance}, Global Seed: {global_seed}, Seed: {seed}, Size: {w}x{h}, Clip skip: {clip_skip}, Model hash: {chash}, Model: {checkpoint}"
   generator = torch.Generator(device).manual_seed(seed)
   if hires:
-      geninfo += f", Hires steps: {hires_steps}, Hires upscale: {hires_scale}, Denoising strength: {denoise}, Hires CFG Scale: {guidance_h}"
+      geninfo += f", Hires steps: {hires_steps}, Hires upscale: {hires_scale}, {f'Hires Adjust: {adjust}, ' if any(c != [0]*3+[1.0]*2 for c in adjust.values()) else ''}Denoising strength: {denoise}, Hires CFG Scale: {guidance_h}"
       generator_h = torch.Generator(device).manual_seed(hires_seed)
   if len(lhash) > 0:
     geninfo += ", Lora hashes: \\""
@@ -1711,9 +1742,10 @@ while i < num_gen:
           generator=generator).images[0]
   if hires:
       flush()
-      hw = (int(w * hires_scale)//8)*8
-      hh = (int(h * hires_scale)//8)*8
+      hw, hh = (int(dim * hires_scale) // 8 * 8 for dim in (w, h))
       image_h = image.resize((hw, hh))
+      if any(c != [0]*3+[1.0]*2 for c in adjust.values()):
+          image_h = color_balance(image_h, adjust)
       image = refiner(
           prompt_embeds=embeds, 
           pooled_prompt_embeds=pooled, 
