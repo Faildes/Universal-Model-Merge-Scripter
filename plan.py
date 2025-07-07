@@ -262,8 +262,7 @@ flush()
                     d = f"TEMP{d}"
                 r = f"remove_model({d})"
             res.append(r)
-    return res, final
-,lora
+    return res, final, lora
 
 def lpaths(l):
     res = ""
