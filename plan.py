@@ -1781,9 +1781,14 @@ torch.cuda.empty_cache()
 flush()""")
     dp.append("""#@title Image ZIP
 name = "download"
-if os.path.exists(f"/kaggle/working/{name}.zip"):
-    os.remove(f"/kaggle/working/{name}.zip")
-!zip -r "/kaggle/working/{name}.zip" "/kaggle/working/t2i_images"
+
+import os, zipfile
+from tqdm.notebook import tqdm
+if os.path.exists(f"/kaggle/working/{name}.zip"): os.remove(f"/kaggle/working/{name}.zip")
+paths = [os.path.join(r, f) for r, _, fs in os.walk("/kaggle/working/t2i_images") for f in fs]
+with zipfile.ZipFile(f"/kaggle/working/{name}.zip", "w", zipfile.ZIP_DEFLATED) as z:
+    for p in tqdm(paths, desc="Zipping..."): z.write(p, os.path.join(name, os.path.relpath(p, "/kaggle/working/t2i_images")))
+print("Done!")
 """)
     tr = data_construct(dp)
     with open(saveas, mode="w+") as f:
