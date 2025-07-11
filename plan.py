@@ -1510,7 +1510,7 @@ flush()
 novasphere = False
 modelpath = "/kaggle/tmp/models/"
 lpath = {}
-"""+lpaths(lora)+"""
+"""+lpaths(loras)+"""
 if novasphere:
   lpath["novasphere"] = [custom_model("https://civitai.com/models/439098/nova-sphere-style","novasphere",1),modelpath,""]
 
