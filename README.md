@@ -13,10 +13,14 @@ Press Save As .ipynb, you'll get Jupiter Notebook file
 `-Name`: delete the model  
 If the Name starts with **_** , this would automatically replaces to **TEMP_**  
 `CM A + B alpha Result`: Weight Sum of 2 models saved as Result  
-`CM A +D B alpha beta Result`: DARE Merge of 2 models saved as Result  
+`CM A +D B alpha beta Result @s seed_num`: DARE Merge of 2 models saved as Result, setting seed as seed_num  
 `CM A + B +S C alpha beta Result`: Sum Twice of 3 models saved as Result  
 `CM A + B +T C alpha beta Result`: Triple Sum of 3 models saved as Result  
 `CM A + B - C alpha Result`: Add Difference of 3 models saved as Result  
+`CM A +F B alpha Result`: Feature Weighted Merge of 2 models saved as Result  
+`CM A #S B alpha Result`: Swap Components in alpha  
+`CM A #X B Result`: CLIP XOR  
+`CM A + B alpha Result @mode mode_name @cosine 0 @fine fine_num`: Set the mode into mode_name, use the cosine of modelA, finetune using fine_num  
 `LB Checkpoint A:alpha,B:beta,C:gamma... Result`: Merge multiple LoRAs to Checkpoint, saved as Result  
 `PR Checkpoint Result`: Prune the checkpoint and saved as Result
 

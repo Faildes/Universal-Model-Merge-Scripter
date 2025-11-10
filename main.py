@@ -16,6 +16,7 @@ def load_set():
 
 init_config={
     "filepath":os.path.dirname(__file__),
+    "workpath":"/kaggle",
     "saveas":os.path.dirname(__file__),
     "title":"",
     "vae":"",
@@ -27,7 +28,6 @@ if os.path.exists(config_file):
 else:
     config=init_config
 
-# ファイル指定の関数
 def filedialog_clicked():
     fTyp = [("Text File","*.txt")]
     iFile = cp("filepath")
@@ -61,6 +61,7 @@ def main():
     win.title("Model Planner")
 
     frame1 = tk.Frame(win)
+    frame0 = tk.Frame(win)
     frame2 = tk.Frame(win)
     frame3 = tk.Frame(win)
     frame4 = tk.Frame(win)
@@ -70,6 +71,7 @@ def main():
 
     newlab = tk.Label(win, text="Model Planner", font = ('MS Gothic', 20))
     lab = tk.Label(frame1, text="Planned Text Path", font = ('MS Gothic', 10))
+    lab0 = tk.Label(frame0, text="Workspace Path", font = ('MS Gothic', 10))
     lab1 = tk.Label(frame2, text="Title", font = ('MS Gothic', 10))
     lab2 = tk.Label(frame3, text="VAE Link", font = ('MS Gothic', 10))
     lab3 = tk.Label(frame4, text="CivitAI API", font = ('MS Gothic', 10))
@@ -85,6 +87,8 @@ def main():
         fileentry.insert(tk.END, iFilePath)
         config["filepath"] = iFilePath
     filebutton = tk.Button(frame1, text="Open",command=filedialog_clicked)
+    wpath = tk.Entry(frame0,width=20)
+    wpath.insert(0,cp("workpath"))
     title = tk.Entry(frame2,width=20)
     title.insert(0,cp("title"))
     vae = tk.Entry(frame3,width=20)
@@ -97,6 +101,7 @@ def main():
     UR.insert(0,cp("UR"))
     def save_as_text():
         config["title"] = title.get()
+        config["workpath"] = wpath.get()
         config["vae"] = vae.get()
         config["CivitAPI"] = CAPI.get()
         config["HuggingAPI"] = HAPI.get()
@@ -113,6 +118,7 @@ def main():
 
     def save_as_ipynb():
         config["title"] = title.get()
+        config["workpath"] = wpath.get()
         config["vae"] = vae.get()
         config["CivitAPI"] = CAPI.get()
         config["HuggingAPI"] = HAPI.get()
@@ -135,6 +141,9 @@ def main():
     lab.pack(anchor=tk.NW)
     fileentry.pack(side=tk.LEFT,expand=True,fill="x",padx=(0,10))
     filebutton.pack(side=tk.LEFT)
+    frame0.pack(anchor=tk.NW,expand=True,fill="x",pady=(10,0))
+    lab0.pack(side=tk.LEFT)
+    wpath.pack(side=tk.LEFT,expand=True,fill="x",padx=(0,10))
     frame2.pack(anchor=tk.NW,expand=True,fill="x",pady=(10,0))
     lab1.pack(side=tk.LEFT)
     title.pack(side=tk.LEFT,expand=True,fill="x",padx=(0,10))
