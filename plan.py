@@ -712,6 +712,7 @@ def custom_vae(url, vae_name=None):
                 return None
     elif "huggingface" in url:
         user_header = f"\"Authorization: Bearer {user_token}\""
+        ext = "safetensors" if "safetensors" in url else "ckpt"
         if "blob/main" in url:
             url = url.replace("blob/main","resolve/main")
         !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d {vae_dir} -o {vae_name}.{ext}
