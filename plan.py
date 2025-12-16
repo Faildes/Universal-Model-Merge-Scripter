@@ -54,9 +54,9 @@ def _parse_tail_at(tokens):
 
         if k in ("cosine0", "cosine1", "cosine2"):
             out["cosine"] = int(k[-1])
-        elif k == "cosine" and v is not None:
+        elif k in ("c","cosine") and v is not None:
             out["cosine"] = int(v)
-        elif k == "fine" and v is not None:
+        elif k in("f","fine") and v is not None:
             out["fine"] = v
         elif k in ("s", "seed") and v is not None:
             out["seed"] = int(v)
