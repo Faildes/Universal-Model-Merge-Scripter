@@ -29,7 +29,11 @@ def _split(s: str):
     return shlex.split(s, posix=True)
 
 def _needs_quote(val: str) -> bool:
-    return ("," in val) or (" " in val)
+    try:
+        float(val)
+        return False
+    except:
+        return True
 
 def _ab_opt(flag: str, val: str, is_rand: bool) -> str:
     # flag: 'alpha' or 'beta'
@@ -38,7 +42,7 @@ def _ab_opt(flag: str, val: str, is_rand: bool) -> str:
     return f"--{name} {v}"
 
 def _parse_tail_at(tokens):
-    out = {"cosine": None, "fine": None, "seed": None, "mode": None, "extras": []}
+    out = {"cosine": None, "fine": None, "seed": None, "mode": None, "precision": None, "extras": []}
     i = 0
     while i < len(tokens):
         t = tokens[i]
@@ -52,17 +56,19 @@ def _parse_tail_at(tokens):
             if i + 1 < len(tokens) and not tokens[i + 1].startswith("@"):
                 v = tokens[i + 1].strip('"').strip("'"); i += 1
 
-        if k in ("cosine0", "cosine1", "cosine2"):
+        if k in ("cosine0", "cosine1", "cosine2", "c0", "c1", "c2"):
             out["cosine"] = int(k[-1])
-        elif k in ("c","cosine") and v is not None:
+        elif k in ("cosine", "c") and v is not None:
             out["cosine"] = int(v)
-        elif k in("f","fine") and v is not None:
+        elif k in ("fine", "f") and v is not None:
             out["fine"] = v
         elif k in ("s", "seed") and v is not None:
             out["seed"] = int(v)
         elif k in ("m", "mode") and v is not None:
             v_norm = v.upper()
             out["mode"] = v_norm
+        elif k in ("p", "precision") and v is not None:
+            out["precision"] = v
         else:
             out["extras"].append(tokens[i])
         i += 1
@@ -124,9 +130,12 @@ def planit(filepath, workpath):
                         cut = i; break
                 core, at = toks[:cut], _parse_tail_at(toks[cut:])
                 tail_opts = []
+                precision = "half"
                 if at["cosine"] is not None: tail_opts.append(f"--cosine{at['cosine']}")
                 if at["fine"]: tail_opts.append(f'--fine {"\""+at["fine"]+"\"" if _needs_quote(at["fine"]) else at["fine"]}')
                 if at["seed"] is not None: tail_opts.append(f"--seed {at['seed']}")
+                if at["precision"] is not None:
+                    precision = "bhalf" if at["precision"].lower() in ("bhalf","bf16","bfloat16") else ("quarter" if at["precision"].lower() in ("quarter","fp8","float8") else "half")
                 tail_str = "" if not tail_opts else " \\\n" + "\n".join(tail_opts)
                 at_mode = at["mode"]
 
@@ -171,10 +180,30 @@ def planit(filepath, workpath):
                                 f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" --model_2 "{C}.safetensors" \\\n'
                                 f'--vae "{vae_path()}" \\\n'
                                 + " \\\n".join(opts) + " \\\n"
-                                f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                                f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                             )
                             emit(cmd, out_, bool(nxt))
 
+                        elif core[3] == "-":
+                            op2 = core[3]
+                            if len(core) < 7:
+                                res.append("# error: CM A + B - C alpha result"); line = nxt; continue
+                            C = temp(core[4])
+
+                            # α
+                            is_ra = core[5].lower() in ("@r","@rand")
+                            a_val = core[6] if is_ra else core[5]
+                            
+                            out_  = temp(core[7] if is_ra else core[6])
+                            kind = at_mode if at_mode else "AD"
+                            cmd = (
+                                f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" --model_2 "{C}.safetensors" \\\n'
+                                f'--vae "{vae_path()}" \\\n'
+                                f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
+                                f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
+                            )
+                            emit(cmd, out_, bool(nxt))
+                            
                         else:
                             # WS: A + B alpha result
                             is_ra = core[3].lower() in ("@r","@rand")
@@ -187,7 +216,7 @@ def planit(filepath, workpath):
                                 f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" \\\n'
                                 f'--vae "{vae_path()}" \\\n'
                                 f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
-                                f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                                f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                             )
                             emit(cmd, out_, bool(nxt))
 
@@ -210,7 +239,7 @@ def planit(filepath, workpath):
                             f'--vae "{vae_path()}" \\\n'
                             f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
                             f'{_ab_opt("beta",  b_val, is_rb)} \\\n'
-                            f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                            f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                         )
                         emit(cmd, out_, bool(nxt))
 
@@ -226,7 +255,7 @@ def planit(filepath, workpath):
                             f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" \\\n'
                             f'--vae "{vae_path()}" \\\n'
                             f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
-                            f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                            f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                         )
                         emit(cmd, out_, bool(nxt))
 
@@ -238,7 +267,19 @@ def planit(filepath, workpath):
                         cmd = (
                             f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" \\\n'
                             f'--vae "{vae_path()}" \\\n'
-                            f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                            f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
+                        )
+                        emit(cmd, out_, bool(nxt))
+                        
+                    elif op1 == "#T":  # Trim and Fill
+                        if len(core) < 4:
+                            res.append("# error: CM A #T B result"); line = nxt; continue
+                        B = temp(core[2]); out_ = temp(core[3])
+                        kind = at_mode if at_mode else "TF"
+                        cmd = (
+                            f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" \\\n'
+                            f'--vae "{vae_path()}" \\\n'
+                            f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                         )
                         emit(cmd, out_, bool(nxt))
                         
@@ -256,7 +297,7 @@ def planit(filepath, workpath):
                             f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" \\\n'
                             f'--vae "{vae_path()}" \\\n'
                             f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
-                            f'--save_half --prune --save_safetensors --output "{out_}"' + tail_str
+                            f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
                         )
                         emit(cmd, out_, bool(nxt))
 
@@ -712,7 +753,6 @@ def custom_vae(url, vae_name=None):
                 return None
     elif "huggingface" in url:
         user_header = f"\"Authorization: Bearer {user_token}\""
-        ext = "safetensors" if "safetensors" in url else "ckpt"
         if "blob/main" in url:
             url = url.replace("blob/main","resolve/main")
         !aria2c --console-log-level=error --header={user_header} -c -x 16 -s 16 -k 1M {url} -d {vae_dir} -o {vae_name}.{ext}
@@ -748,29 +788,29 @@ scheduler="euler_a"
 vpred=False
 
 SCHEDULERS = {
-  "unipc":[diffusers.schedulers.UniPCMultistepScheduler,{{}},"UniPC"],
-  "euler_a":[diffusers.schedulers.EulerAncestralDiscreteScheduler,{{}},"Euler a"],
-  "euler":[diffusers.schedulers.EulerDiscreteScheduler,{{}},"Euler"],
-  "ddim":[diffusers.schedulers.DDIMScheduler,{{}},"DDIM"],
-  "ddpm":[diffusers.schedulers.DDPMScheduler,{{}},"DDPM"],
-  "deis":[diffusers.schedulers.DEISMultistepScheduler,{{}},"DEIS"],
-  "dpm2":[diffusers.schedulers.KDPM2DiscreteScheduler,{{}},"DPM2"],
-  "dpm2_karras":[diffusers.schedulers.KDPM2DiscreteScheduler,{{"use_karras_sigmas":True}},"DPM2 Karras"],
-  "dpm2-a":[diffusers.schedulers.KDPM2AncestralDiscreteScheduler,{{}},"DPM2 a"],
-  "dpm2-a_karras":[diffusers.schedulers.KDPM2AncestralDiscreteScheduler,{{"use_karras_sigmas":True}},"DPM2 a Karras"],
-  "dpm++_2s_a":[diffusers.schedulers.DPMSolverSinglestepScheduler,{{}},"DPM++ 2S a"],
-  "dpm++_2s_a_karras":[diffusers.schedulers.DPMSolverSinglestepScheduler,{{"use_karras_sigmas":True}},"DPM++ 2S a Karras"],
-  "dpm++_2m":[diffusers.schedulers.DPMSolverMultistepScheduler,{{}},"DPM++ 2M"],
-  "dpm++_2m_karras":[diffusers.schedulers.DPMSolverMultistepScheduler,{{"use_karras_sigmas":True}},"DPM++ 2M Karras"],
-  "dpm++_2m_sde":[diffusers.schedulers.DPMSolverMultistepScheduler,{{"algorithm_type":"sde-dpmsolver++"}},"DPM++ 2M SDE"],
-  "dpm++_2m_sde_karras":[diffusers.schedulers.DPMSolverMultistepScheduler,{{"algorithm_type":"sde-dpmsolver++","use_karras_sigmas":True}},"DPM++ 2M SDE Karras"],
-  "dpm++_sde":[diffusers.schedulers.DPMSolverSDEScheduler,{{}},"DPM++ SDE"],
-  "dpm++_sde_karras":[diffusers.schedulers.DPMSolverSDEScheduler,{{"use_karras_sigmas":True}},"DPM++ SDE Karras"],
-  "heun":[diffusers.schedulers.HeunDiscreteScheduler,{{}},"Heun"],
-  "heun_karras":[diffusers.schedulers.HeunDiscreteScheduler,{{"use_karras_sigmas":True}},"Heun Karras"],
-  "lms":[diffusers.schedulers.LMSDiscreteScheduler,{{}},"LMS"],
-  "lms_karras":[diffusers.schedulers.LMSDiscreteScheduler,{{"use_karras_sigmas":True}},"LMS Karras"],
-  "pndm":[diffusers.schedulers.PNDMScheduler,{{}},"PNDM"],
+  "unipc":[diffusers.schedulers.UniPCMultistepScheduler,{},"UniPC"],
+  "euler_a":[diffusers.schedulers.EulerAncestralDiscreteScheduler,{},"Euler a"],
+  "euler":[diffusers.schedulers.EulerDiscreteScheduler,{},"Euler"],
+  "ddim":[diffusers.schedulers.DDIMScheduler,{},"DDIM"],
+  "ddpm":[diffusers.schedulers.DDPMScheduler,{},"DDPM"],
+  "deis":[diffusers.schedulers.DEISMultistepScheduler,{},"DEIS"],
+  "dpm2":[diffusers.schedulers.KDPM2DiscreteScheduler,{},"DPM2"],
+  "dpm2_karras":[diffusers.schedulers.KDPM2DiscreteScheduler,{"use_karras_sigmas":True},"DPM2 Karras"],
+  "dpm2-a":[diffusers.schedulers.KDPM2AncestralDiscreteScheduler,{},"DPM2 a"],
+  "dpm2-a_karras":[diffusers.schedulers.KDPM2AncestralDiscreteScheduler,{"use_karras_sigmas":True},"DPM2 a Karras"],
+  "dpm++_2s_a":[diffusers.schedulers.DPMSolverSinglestepScheduler,{},"DPM++ 2S a"],
+  "dpm++_2s_a_karras":[diffusers.schedulers.DPMSolverSinglestepScheduler,{"use_karras_sigmas":True},"DPM++ 2S a Karras"],
+  "dpm++_2m":[diffusers.schedulers.DPMSolverMultistepScheduler,{},"DPM++ 2M"],
+  "dpm++_2m_karras":[diffusers.schedulers.DPMSolverMultistepScheduler,{"use_karras_sigmas":True},"DPM++ 2M Karras"],
+  "dpm++_2m_sde":[diffusers.schedulers.DPMSolverMultistepScheduler,{"algorithm_type":"sde-dpmsolver++"},"DPM++ 2M SDE"],
+  "dpm++_2m_sde_karras":[diffusers.schedulers.DPMSolverMultistepScheduler,{"algorithm_type":"sde-dpmsolver++","use_karras_sigmas":True},"DPM++ 2M SDE Karras"],
+  "dpm++_sde":[diffusers.schedulers.DPMSolverSDEScheduler,{},"DPM++ SDE"],
+  "dpm++_sde_karras":[diffusers.schedulers.DPMSolverSDEScheduler,{"use_karras_sigmas":True},"DPM++ SDE Karras"],
+  "heun":[diffusers.schedulers.HeunDiscreteScheduler,{},"Heun"],
+  "heun_karras":[diffusers.schedulers.HeunDiscreteScheduler,{"use_karras_sigmas":True},"Heun Karras"],
+  "lms":[diffusers.schedulers.LMSDiscreteScheduler,{},"LMS"],
+  "lms_karras":[diffusers.schedulers.LMSDiscreteScheduler,{"use_karras_sigmas":True},"LMS Karras"],
+  "pndm":[diffusers.schedulers.PNDMScheduler,{},"PNDM"],
 }
 mt={"fp16":torch.float16,"fp32":torch.float32,"bf16":torch.bfloat16}
 
@@ -998,7 +1038,7 @@ for i,s in enumerate(seeds):
     if hires: hs = hires_seeds[i]
     else: hs = s
     gen = torch.Generator("cpu").manual_seed(int(s))
-    genh = torch.Generator("cpu").manual_seed(hs)
+    genh = torch.Generator("cpu").manual_seed(int(hs))
     info=f"{prompt}\nNegative prompt: {neg}\nSteps: {steps}, Sampler: {scd_name}, CFG scale: {guidance}, Seed: {s}, Global Seed: {global_seed}, Size: {w}x{h}, Clip skip: {clip_skip}, Model: {checkpoint}"
     if hires:
         geninfo += f"{f', Hires Global Seed: {global_hires_seed}, Hires Seed: {hs}, ' if global_hires_seed != global_seed else ''}, Hires steps: {hires_steps}, Hires upscale: {hires_scale}, {f'Hires Adjust: {flat_adjust}, ' if any(c != [0]*3+[1.0]*2 for c in adjust.values()) else ''}Denoising strength: {denoise}, Hires CFG Scale: {guidance_h}"

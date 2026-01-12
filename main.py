@@ -28,6 +28,7 @@ if os.path.exists(config_file):
 else:
     config=init_config
 
+# ファイル指定の関数
 def filedialog_clicked():
     fTyp = [("Text File","*.txt")]
     iFile = cp("filepath")
