@@ -28,15 +28,6 @@ if os.path.exists(config_file):
 else:
     config=init_config
 
-# ファイル指定の関数
-def filedialog_clicked():
-    fTyp = [("Text File","*.txt")]
-    iFile = cp("filepath")
-    iFilePath = filedialog.askopenfilename(filetypes = fTyp, title = "Select Planned File Path", initialdir = iFile)
-    fileentry.delete(0, tk.END)
-    fileentry.insert(tk.END, iFilePath)
-    config["filepath"] = iFilePath
-
 def about():
     sub_win = tk.Toplevel()
     sub_win.geometry("300x100")

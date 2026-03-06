@@ -28,6 +28,50 @@ def _nb_json(cells: List[str]) -> str:
 def _split(s: str):
     return shlex.split(s, posix=True)
 
+def _split_top_level(s: str, sep: str = ",") -> List[str]:
+    # split by sep, but ignore seps inside (), [], {}
+    opens = {"(": ")", "[": "]", "{": "}"}
+    stack = []
+    out, buf = [], []
+    for ch in s:
+        if ch in opens:
+            stack.append(opens[ch])
+        elif stack and ch == stack[-1]:
+            stack.pop()
+        elif (ch == sep) and (not stack):
+            part = "".join(buf).strip()
+            if part:
+                out.append(part)
+            buf = []
+            continue
+        buf.append(ch)
+    part = "".join(buf).strip()
+    if part:
+        out.append(part)
+    return out
+
+def _ensure_st(val: str) -> str:
+    v = val.strip()
+    return v if v.lower().endswith(".safetensors") else f"{v}.safetensors"
+
+def _parse_lora_pairs(raw: str):
+    """
+    raw: 'lora1:ratio,lora2:[...]{...},lora3'  (ratio may contain commas inside []/{} )
+    return: [(name, ratio_str), ...]
+    """
+    items = _split_top_level(raw.strip(), ",")
+    out = []
+    for it in items:
+        it = it.strip()
+        if not it:
+            continue
+        if ":" in it:
+            name, ratio = it.split(":", 1)  # IMPORTANT: only first ':'
+            out.append((name.strip(), ratio.strip()))
+        else:
+            out.append((it.strip(), "1.0"))
+    return out
+
 def _needs_quote(val: str) -> bool:
     try:
         float(val)
@@ -42,7 +86,11 @@ def _ab_opt(flag: str, val: str, is_rand: bool) -> str:
     return f"--{name} {v}"
 
 def _parse_tail_at(tokens):
-    out = {"cosine": None, "fine": None, "seed": None, "mode": None, "precision": None, "extras": []}
+    out = {
+        "cosine": None, "fine": None, "seed": None, "mode": None,
+        "precision": None, "rank": None, "arch": None,
+        "extras": []
+    }
     i = 0
     while i < len(tokens):
         t = tokens[i]
@@ -69,6 +117,10 @@ def _parse_tail_at(tokens):
             out["mode"] = v_norm
         elif k in ("p", "precision") and v is not None:
             out["precision"] = v
+        elif k in ("rank", "rk", "rnk") and v is not None:
+            out["rank"] = int(v)
+        elif k in ("arch", "a") and v is not None:
+            out["arch"] = v.lower()  # e.g. auto/sd/sdxl/flux/zi
         else:
             out["extras"].append(tokens[i])
         i += 1
@@ -86,7 +138,7 @@ def planit(filepath, workpath):
     def opts(cos,fine,seed,need_seed=False):
         s=[]
         if cos is not None: s.append(f"--cosine {cos}")
-        if fine: s.append(f'--fine "{fine}"')
+        if fine: s.append(f'--fine="{fine}"')
         if need_seed:
             sd = seed if seed is not None else random.randrange(2**63)
             s.append(f"--seed {sd}")
@@ -132,7 +184,7 @@ def planit(filepath, workpath):
                 tail_opts = []
                 precision = "half"
                 if at["cosine"] is not None: tail_opts.append(f"--cosine{at['cosine']}")
-                if at["fine"]: tail_opts.append(f'--fine {"\""+at["fine"]+"\"" if _needs_quote(at["fine"]) else at["fine"]}')
+                if at["fine"]: tail_opts.append(f'--fine={"\""+at["fine"]+"\"" if _needs_quote(at["fine"]) else at["fine"]}')
                 if at["seed"] is not None: tail_opts.append(f"--seed {at['seed']}")
                 if at["precision"] is not None:
                     precision = "bhalf" if at["precision"].lower() in ("bhalf","bf16","bfloat16") else ("quarter" if at["precision"].lower() in ("quarter","fp8","float8") else "half")
@@ -177,7 +229,7 @@ def planit(filepath, workpath):
                             extra = at
 
                             cmd = (
-                                f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" --model_2 "{C}.safetensors" \\\n'
+                                f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors"  "{C}.safetensors" \\\n'
                                 f'--vae "{vae_path()}" \\\n'
                                 + " \\\n".join(opts) + " \\\n"
                                 f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
@@ -197,7 +249,7 @@ def planit(filepath, workpath):
                             out_  = temp(core[7] if is_ra else core[6])
                             kind = at_mode if at_mode else "AD"
                             cmd = (
-                                f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors" --model_2 "{C}.safetensors" \\\n'
+                                f'!python merge.py "{kind}" "{models_dir()}" "{A}.safetensors" "{B}.safetensors"  "{C}.safetensors" \\\n'
                                 f'--vae "{vae_path()}" \\\n'
                                 f'{_ab_opt("alpha", a_val, is_ra)} \\\n'
                                 f'--save_{precision} --prune --save_safetensors --output "{out_}"' + tail_str
@@ -308,17 +360,90 @@ def planit(filepath, workpath):
 
                 line = nxt
                 continue
+            
+            # LM (merge LoRAs -> single LoRA)
+            # Syntax: LM lora1:ratio,lora2:ratio,... Result @rank 64
+            if t.startswith("LM"):
+                if last != "merge": res.append("flush()")
+                last = "merge"; res.append("")
 
-            # LB (lora_bake)
+                toks = _split(t[2:].strip())
+                if len(toks) < 2:
+                    res.append("# error: LM needs: LM lora1:ratio,... Result [@rank N]"); line = nxt; continue
+
+                # cut tail (@...)
+                cut = len(toks)
+                for i, tk in enumerate(toks):
+                    if tk.startswith("@"):
+                        cut = i; break
+                core, at = toks[:cut], _parse_tail_at(toks[cut:])
+
+                if len(core) < 2:
+                    res.append("# error: LM needs pairs and result"); line = nxt; continue
+
+                out_ = temp(core[-1])
+                pairs_raw = " ".join(core[:-1])  # keep spaces inside ratio specs
+
+                pairs = _parse_lora_pairs(pairs_raw)
+                if not pairs:
+                    res.append("# error: LM empty lora list"); line = nxt; continue
+
+                # build loras arg for lora_bake (merge mode)
+                fe_items = []
+                for name, ratio in pairs:
+                    name = temp(name)
+                    fe_items.append(f"{_ensure_st(name)}:{ratio}")
+                fe = ",".join(fe_items)
+
+                rank = at["rank"] if at["rank"] is not None else 64
+                arch_opt = f' \\\n--merge_arch "{at["arch"]}"' if at["arch"] else ""
+
+                cmd = (
+                    f'!python lora_bake.py "{workpath}/tmp/models/" \\\n'
+                    f'loras="{fe}" \\\n'
+                    f'--merge_loras --merge_rank {int(rank)}{arch_opt} \\\n'
+                    f'--save_safetensors --output "{out_}"'
+                )
+                # LM produces a LoRA, not a checkpoint => don't call model()
+                res.append(cmd + "\nflush()")
+                line = nxt
+                continue
+
+            # LB (lora_bake) with hierarchical/elemental ratio support
+            # Syntax: LB base lora1:ratio,lora2:ratio,... result
             if t.startswith("LB"):
-                if last!="merge": res.append("flush()")
-                last="merge"
-                base,pairs,out_ = t[3:].split(" ")
-                base,out_ = temp(base), temp(out_)
-                fe = ",".join(q.replace(":",".safetensors:") for q in pairs.split(","))
-                cmd = (f'!python lora_bake.py "{workpath}/tmp/models/" "{base}.safetensors" \\\n'
-                       f'"{fe}" \\\n--save_half --prune --save_safetensors --output "{out_}"')
-                emit(cmd,out_,has_next); line=nxt; continue
+                if last != "merge": res.append("flush()")
+                last = "merge"
+
+                toks = _split(t)  # shlex split
+                # ["LB", base, pairs..., out]
+                if len(toks) < 4:
+                    res.append("# error: LB needs: LB base lora1:ratio,... result")
+                    line = nxt; continue
+
+                base = temp(toks[1])
+                out_ = temp(toks[-1])
+                pairs_raw = " ".join(toks[2:-1]).strip()
+
+                pairs = _parse_lora_pairs(pairs_raw)
+                if not pairs:
+                    res.append("# error: LB empty lora list"); line = nxt; continue
+
+                fe_items = []
+                for name, ratio in pairs:
+                    name = temp(name)
+                    fe_items.append(f"{_ensure_st(name)}:{ratio}")
+                fe = ",".join(fe_items)
+
+                base_st = base if base.lower().endswith(".safetensors") else f"{base}.safetensors"
+
+                cmd = (
+                    f'!python lora_bake.py "{workpath}/tmp/models/" "{base_st}" \\\n'
+                    f'"{fe}" \\\n--save_half --prune --save_safetensors --output "{out_}"'
+                )
+                emit(cmd, out_, has_next)
+                line = nxt
+                continue
 
             # PR (prune pass-through)
             if t.startswith("PR"):
@@ -326,7 +451,7 @@ def planit(filepath, workpath):
                 last="merge"
                 a,out_ = t[3:].split(" ")
                 a,out_ = temp(a), temp(out_)
-                cmd = (f'!python merge.py "NoIn" "{workpath}/tmp/models/" "{a}.safetensors" None \\\n'
+                cmd = (f'!python merge.py "NoIn" "{workpath}/tmp/models/" "{a}.safetensors" \\\n'
                        f'--vae "{vae()}" \\\n--save_half --prune --save_safetensors --output "{out_}"')
                 emit(cmd,out_,has_next); line=nxt; continue
 
@@ -1038,7 +1163,7 @@ for i,s in enumerate(seeds):
     if hires: hs = hires_seeds[i]
     else: hs = s
     gen = torch.Generator("cpu").manual_seed(int(s))
-    genh = torch.Generator("cpu").manual_seed(int(hs))
+    genh = torch.Generator("cpu").manual_seed(hs)
     info=f"{prompt}\nNegative prompt: {neg}\nSteps: {steps}, Sampler: {scd_name}, CFG scale: {guidance}, Seed: {s}, Global Seed: {global_seed}, Size: {w}x{h}, Clip skip: {clip_skip}, Model: {checkpoint}"
     if hires:
         geninfo += f"{f', Hires Global Seed: {global_hires_seed}, Hires Seed: {hs}, ' if global_hires_seed != global_seed else ''}, Hires steps: {hires_steps}, Hires upscale: {hires_scale}, {f'Hires Adjust: {flat_adjust}, ' if any(c != [0]*3+[1.0]*2 for c in adjust.values()) else ''}Denoising strength: {denoise}, Hires CFG Scale: {guidance_h}"
